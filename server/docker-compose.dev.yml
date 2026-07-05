@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: keynest-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: keynest
+      POSTGRES_PASSWORD: keynest_secret
+      POSTGRES_DB: keynest
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U keynest -d keynest']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keynest-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: keynest-api-dev
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://keynest:keynest_secret@postgres:5432/keynest?schema=public
+      JWT_SECRET: dev-secret-change-in-production
+      JWT_EXPIRES_IN: 7d
+      NODE_ENV: development
+      PORT: 3000
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - keynest-network
+
+volumes:
+  postgres_data:
+
+networks:
+  keynest-network:
+    driver: bridge

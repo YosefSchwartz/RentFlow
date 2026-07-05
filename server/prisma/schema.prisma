@@ -1,0 +1,373 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum DocumentCategory {
+  // Property document categories
+  INSURANCE
+  WARRANTY
+  METER_READING
+  PROPERTY_PHOTO
+  INVOICE
+  MANUAL
+  // Lease document categories
+  LEASE_AGREEMENT
+  SIGNED_LEASE
+  GUARANTOR_DOCUMENT
+  ADDENDUM
+  // Standardized categories (aligned with the document workflow)
+  IDENTIFICATION
+  LEGAL // Municipality / legal documents
+  PROPERTY_INFO // General property information
+  TENANT_DOCUMENT
+  // General/Legacy
+  CONTRACT // Kept for backward compatibility
+  OTHER
+}
+
+// Who can see a document.
+enum DocumentVisibility {
+  PRIVATE // Only the property owner
+  SHARED // Owner and the tenant
+}
+
+// Required-document workflow status.
+enum DocumentStatus {
+  OPTIONAL // A regular uploaded document (default)
+  REQUESTED // Landlord requested this from the tenant; no file yet
+  RECEIVED // Tenant has uploaded the requested file
+}
+
+enum LeaseStatus {
+  PENDING
+  ACTIVE
+  ENDED
+}
+
+enum NotificationType {
+  LEASE_PENDING
+  LEASE_APPROVED
+  LEASE_REJECTED
+  MAINTENANCE_CREATED
+  MAINTENANCE_UPDATED
+  MAINTENANCE_RESOLVED
+  MAINTENANCE_COMMENT
+  DOCUMENT_UPLOADED
+  DOCUMENT_REQUESTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  ownedProperties      Property[]
+  leases               Lease[]
+  maintenanceRequests  MaintenanceRequest[]
+  maintenanceComments  MaintenanceComment[]
+  maintenanceReads     MaintenanceRead[]
+  uploadedDocuments    Document[]
+  sessions             Session[]
+  notifications        Notification[]
+
+  // Media uploads (separate domains: property gallery vs. maintenance evidence)
+  uploadedPropertyMedia          PropertyMedia[]
+  uploadedMaintenanceAttachments MaintenanceAttachment[]
+  uploadedStoredFiles            StoredFile[]
+
+  @@index([email])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  refreshTokenHash String
+  deviceIdentifier String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  lastUsedAt       DateTime  @default(now())
+  expiresAt        DateTime
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Property {
+  id           String   @id @default(cuid())
+  title        String
+  address      String   // Legacy field, kept for backward compatibility
+  city         String
+  squareMeters Int
+  rooms        Int
+  floor        Int?
+  hasBalcony   Boolean  @default(false)
+  hasParking   Boolean  @default(false)
+  hasStorage   Boolean  @default(false)
+  hasShelter   Boolean  @default(false)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Structured location fields (from Google Places)
+  formattedAddress String?  // Full formatted address from Google
+  street           String?  // Street name
+  streetNumber     String?  // Street number
+  latitude         Float?   // Geographic latitude
+  longitude        Float?   // Geographic longitude
+  placeId          String?  // Google Place ID for reference
+
+  // Owner relation
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Relations
+  leases              Lease[]
+  documents           Document[]
+  maintenanceRequests MaintenanceRequest[]
+  media               PropertyMedia[]
+
+  @@index([ownerId])
+  @@index([city])
+  @@index([placeId])
+}
+
+model Lease {
+  id            String      @id @default(cuid())
+  status        LeaseStatus @default(PENDING)
+  startDate     DateTime
+  endDate       DateTime?
+  monthlyRent   Decimal?    @db.Decimal(10, 2)
+  depositAmount Decimal?    @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Per-lease activation code. The landlord creates the lease (tenant-less) and
+  // shares this code; a tenant redeems it to become the lease's tenant.
+  // Cleared (consumed) once redeemed.
+  activationCode          String?   @unique
+  activationCodeExpiresAt DateTime?
+
+  // Relations
+  propertyId String
+  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  // Nullable: a lease is the landlord's record and may be "Unassigned" until a
+  // tenant redeems the activation code.
+  tenantId   String?
+  tenant     User?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  documents  Document[]
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model Document {
+  id        String           @id @default(cuid())
+  name      String
+  category  DocumentCategory
+  visibility DocumentVisibility @default(PRIVATE)
+  status     DocumentStatus     @default(OPTIONAL)
+  requestedAt DateTime?
+  receivedAt  DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Parent relations (exactly one must be set)
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  leaseId    String?
+  lease      Lease?    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  // Uploader relation
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // Physical file (null for a REQUESTED document with no upload yet).
+  storedFileId String?     @unique
+  storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([leaseId])
+  @@index([uploadedById])
+  @@index([category])
+  @@index([status])
+}
+
+model MaintenanceRequest {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  status      MaintenanceStatus @default(OPEN)
+  priority    Int               @default(1)
+  resolvedAt  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  requesterId String
+  requester   User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  comments    MaintenanceComment[]
+  attachments MaintenanceAttachment[]
+  reads       MaintenanceRead[]
+
+  @@index([propertyId])
+  @@index([requesterId])
+  @@index([status])
+}
+
+// Tracks when a user last opened a maintenance request's conversation.
+// Powers "suppress notification if recently active" and "mark read on open".
+model MaintenanceRead {
+  id         String   @id @default(cuid())
+  lastReadAt DateTime @default(now())
+
+  requestId String
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, userId])
+  @@index([userId])
+}
+
+model MaintenanceComment {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  // Relations
+  requestId String
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([authorId])
+}
+
+// Property gallery media (photos/videos of the property itself).
+// A distinct domain model from MaintenanceAttachment by design.
+model PropertyMedia {
+  id        String    @id @default(cuid())
+  type      MediaType
+  createdAt DateTime  @default(now())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  storedFileId String     @unique
+  storedFile   StoredFile @relation(fields: [storedFileId], references: [id], onDelete: Restrict)
+
+  @@index([propertyId])
+  @@index([uploadedById])
+}
+
+// Evidence files attached to a maintenance request.
+// A distinct domain model from PropertyMedia by design.
+model MaintenanceAttachment {
+  id        String    @id @default(cuid())
+  type      MediaType
+  createdAt DateTime  @default(now())
+
+  maintenanceRequestId String
+  maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  storedFileId String     @unique
+  storedFile   StoredFile @relation(fields: [storedFileId], references: [id], onDelete: Restrict)
+
+  @@index([maintenanceRequestId])
+  @@index([uploadedById])
+}
+
+// ============================================================================
+// Media / Storage layer
+// ============================================================================
+// A physical file stored in the storage backend (S3 / LocalStack today).
+//
+// StoredFile holds ONLY storage metadata — it has no business meaning and does
+// not know *why* it exists. Business entities (Document, PropertyMedia,
+// MaintenanceAttachment, future LeaseDocument / InspectionReport / Signature)
+// reference it via a `storedFileId` FK. The back-relations below exist purely
+// for Prisma navigation + referential integrity, not business logic.
+//
+// Future-ready (no redesign needed): versioning (storageVersion), thumbnails /
+// dimensions (imageWidth/Height, videoDuration), checksums, multi-provider
+// (storageProvider), and multiple files per entity (add a join on the owner side).
+model StoredFile {
+  id               String   @id @default(cuid())
+  storageKey       String   @unique // path within the bucket; never the original filename
+  originalFilename String // display name shown to users
+  mimeType         String
+  fileExtension    String?
+  fileSize         Int
+  checksum         String?
+  imageWidth       Int?
+  imageHeight      Int?
+  videoDuration    Int? // seconds
+  storageProvider  String   @default("s3")
+  storageVersion   String? // future: object version id
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // Navigation-only inverse relations (Prisma requirement); no business logic.
+  document              Document?
+  propertyMedia         PropertyMedia?
+  maintenanceAttachment MaintenanceAttachment?
+
+  @@index([uploadedById])
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  type       NotificationType
+  title      String
+  message    String
+  isRead     Boolean          @default(false)
+  entityType String?          // e.g., "lease", "property", "maintenance"
+  entityId   String?          // ID of the related entity
+  createdAt  DateTime         @default(now())
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
