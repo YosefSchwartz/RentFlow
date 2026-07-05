@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "KeyNest",
+    "slug": "keynest",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.keynest.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.keynest.app"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    },
+    "plugins": [
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KeyNest needs access to your photos so you can upload property photos and attach evidence to maintenance requests.",
+          "cameraPermission": "KeyNest needs access to your camera so you can take photos and record videos for your properties and maintenance requests.",
+          "microphonePermission": "KeyNest needs access to your microphone to record videos."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}
