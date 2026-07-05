@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KeyNest — Privacy Policy</title>
+  <style>
+    :root { --fg:#1a1a2e; --muted:#5a5a72; --bg:#f6f7fb; --card:#fff; --accent:#3b5bdb; --border:#e4e6ef; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      line-height:1.6; }
+    .wrap { max-width:760px; margin:0 auto; padding:24px 18px 64px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .brand { font-weight:700; font-size:20px; color:var(--accent); }
+    .toggle button { border:1px solid var(--border); background:var(--card); color:var(--fg);
+      padding:6px 12px; border-radius:999px; cursor:pointer; font-size:14px; }
+    .toggle button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px 22px; margin-top:16px; }
+    h1 { font-size:26px; margin:8px 0 4px; }
+    h2 { font-size:18px; margin:22px 0 6px; }
+    p, li { color:var(--fg); }
+    .muted { color:var(--muted); font-size:14px; }
+    a { color:var(--accent); }
+    ul { padding-inline-start:20px; }
+    footer { margin-top:28px; text-align:center; }
+    [dir="rtl"] { text-align:right; }
+    [hidden] { display:none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">KeyNest</div>
+      <div class="toggle">
+        <button id="btn-en" class="active" onclick="setLang('en')">English</button>
+        <button id="btn-he" onclick="setLang('he')">עברית</button>
+      </div>
+    </header>
+
+    <!-- ENGLISH -->
+    <main id="content-en" class="card" dir="ltr">
+      <h1>Privacy Policy</h1>
+      <p class="muted">Last updated: June 2026</p>
+      <p>KeyNest ("we", "us") is a property-management app that helps landlords manage properties, leases, documents, and maintenance, and lets their tenants view what is shared with them. This policy explains what we collect and how we use it.</p>
+
+      <h2>Information we collect</h2>
+      <ul>
+        <li><strong>Account:</strong> first name, last name, email, and a securely hashed password.</li>
+        <li><strong>Property &amp; lease data:</strong> properties you create, lease terms, and the activation codes used to connect tenants.</li>
+        <li><strong>Documents &amp; media:</strong> files, photos, and videos you upload (e.g. lease documents, property photos, maintenance evidence).</li>
+        <li><strong>Maintenance requests:</strong> issues, comments, and attachments.</li>
+        <li><strong>Technical data:</strong> minimal logs needed to operate and secure the service.</li>
+      </ul>
+
+      <h2>How we use your information</h2>
+      <ul>
+        <li>To provide core features (properties, leases, documents, media, maintenance, notifications).</li>
+        <li>To connect a landlord with their tenant when a lease activation code is redeemed.</li>
+        <li>To secure accounts and prevent abuse.</li>
+      </ul>
+
+      <h2>How we share information</h2>
+      <p>We do <strong>not</strong> sell your data. Information is shared only:</p>
+      <ul>
+        <li>Between a landlord and the tenant of a lease, limited to what is marked shared.</li>
+        <li>With infrastructure providers (e.g. Amazon Web Services) that host data on our behalf.</li>
+        <li>When required by law.</li>
+      </ul>
+
+      <h2>Storage &amp; security</h2>
+      <p>Files are stored in Amazon S3. Data is transmitted over encrypted connections, passwords are hashed, and access is restricted by ownership and lease relationships.</p>
+
+      <h2>Camera &amp; photos</h2>
+      <p>With your permission, the app accesses your camera and photo library only to let you upload property photos and maintenance attachments. Media is uploaded only when you choose to add it.</p>
+
+      <h2>Data retention &amp; your rights</h2>
+      <p>We keep your data while your account is active. You may request access, correction, or deletion of your data, including account deletion, by contacting us. Deleting your account removes your personal data and associated files, subject to legal retention requirements.</p>
+
+      <h2>Children</h2>
+      <p>KeyNest is not intended for anyone under 18.</p>
+
+      <h2>Changes</h2>
+      <p>We may update this policy and will revise the "last updated" date above.</p>
+
+      <h2>Contact</h2>
+      <p>Questions? Email <a href="mailto:support@keynest.app">support@keynest.app</a>.</p>
+    </main>
+
+    <!-- HEBREW -->
+    <main id="content-he" class="card" dir="rtl" hidden>
+      <h1>מדיניות פרטיות</h1>
+      <p class="muted">עודכן לאחרונה: יוני 2026</p>
+      <p>KeyNest ("אנחנו") היא אפליקציה לניהול נכסים המאפשרת לבעלי נכסים לנהל נכסים, חוזים, מסמכים ותחזוקה, ולדיירים שלהם לצפות במה שמשותף איתם. מדיניות זו מסבירה אילו נתונים אנו אוספים וכיצד אנו משתמשים בהם.</p>
+
+      <h2>מידע שאנו אוספים</h2>
+      <ul>
+        <li><strong>חשבון:</strong> שם פרטי, שם משפחה, אימייל וסיסמה מוצפנת (hashed).</li>
+        <li><strong>נתוני נכס וחוזה:</strong> נכסים שאתה יוצר, תנאי חוזה וקודי הפעלה לחיבור דיירים.</li>
+        <li><strong>מסמכים ומדיה:</strong> קבצים, תמונות וסרטונים שאתה מעלה (מסמכי חוזה, תמונות נכס, ראיות תחזוקה).</li>
+        <li><strong>בקשות תחזוקה:</strong> תקלות, הערות וקבצים מצורפים.</li>
+        <li><strong>נתונים טכניים:</strong> רישומים מינימליים הנדרשים להפעלה ולאבטחת השירות.</li>
+      </ul>
+
+      <h2>כיצד אנו משתמשים במידע</h2>
+      <ul>
+        <li>לספק את התכונות המרכזיות (נכסים, חוזים, מסמכים, מדיה, תחזוקה, התראות).</li>
+        <li>לחבר בעל נכס עם הדייר שלו בעת מימוש קוד הפעלת חוזה.</li>
+        <li>לאבטח חשבונות ולמנוע שימוש לרעה.</li>
+      </ul>
+
+      <h2>כיצד אנו משתפים מידע</h2>
+      <p>אנו <strong>לא</strong> מוכרים את הנתונים שלך. מידע משותף רק:</p>
+      <ul>
+        <li>בין בעל נכס לדייר של חוזה, ומוגבל למה שסומן כמשותף.</li>
+        <li>עם ספקי תשתית (כגון Amazon Web Services) המאחסנים נתונים עבורנו.</li>
+        <li>כאשר נדרש על פי חוק.</li>
+      </ul>
+
+      <h2>אחסון ואבטחה</h2>
+      <p>קבצים מאוחסנים ב-Amazon S3. הנתונים מועברים בחיבורים מוצפנים, סיסמאות מוצפנות, והגישה מוגבלת לפי בעלות וקשרי חוזה.</p>
+
+      <h2>מצלמה ותמונות</h2>
+      <p>באישורך, האפליקציה ניגשת למצלמה ולספריית התמונות רק כדי לאפשר העלאת תמונות נכס וקבצים מצורפים לתחזוקה. מדיה מועלית רק כאשר תבחר להוסיף אותה.</p>
+
+      <h2>שמירת נתונים והזכויות שלך</h2>
+      <p>אנו שומרים את הנתונים כל עוד החשבון פעיל. באפשרותך לבקש גישה, תיקון או מחיקה של הנתונים, כולל מחיקת חשבון, על ידי פנייה אלינו.</p>
+
+      <h2>ילדים</h2>
+      <p>KeyNest אינה מיועדת למי שמתחת לגיל 18.</p>
+
+      <h2>שינויים</h2>
+      <p>אנו עשויים לעדכן מדיניות זו ונעדכן את תאריך "עודכן לאחרונה" שלמעלה.</p>
+
+      <h2>צור קשר</h2>
+      <p>שאלות? כתבו לנו: <a href="mailto:support@keynest.app">support@keynest.app</a>.</p>
+    </main>
+
+    <footer class="muted">© 2026 KeyNest</footer>
+  </div>
+
+  <script>
+    function setLang(lang) {
+      var en = lang === 'en';
+      document.getElementById('content-en').hidden = !en;
+      document.getElementById('content-he').hidden = en;
+      document.getElementById('btn-en').classList.toggle('active', en);
+      document.getElementById('btn-he').classList.toggle('active', !en);
+      document.documentElement.lang = lang;
+      document.documentElement.dir = en ? 'ltr' : 'rtl';
+    }
+    // Default to Hebrew for he-* browsers.
+    if ((navigator.language || '').toLowerCase().startsWith('he')) setLang('he');
+  </script>
+</body>
+</html>
