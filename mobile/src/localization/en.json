@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "KeyNest",
+    "appName": "RentFlow",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -39,7 +39,7 @@
     "firstName": "First Name",
     "lastName": "Last Name",
     "createAccount": "Create Account",
-    "joinKeynest": "Join KeyNest today",
+    "joinKeynest": "Join RentFlow today",
     "tagline": "Property Management Made Simple",
     "noAccount": "Don't have an account? Register",
     "hasAccount": "Already have an account? Login",
@@ -368,9 +368,9 @@
     "label": "Activation Code",
     "shareCode": "Share Code",
     "regenerate": "Generate a new code",
-    "shareMessage": "Join your lease on KeyNest! Use this activation code: {{code}}",
+    "shareMessage": "Join your lease on RentFlow! Use this activation code: {{code}}",
     "instructionsTitle": "Instructions for Tenant",
-    "step1": "Download the KeyNest app and create an account",
+    "step1": "Download the RentFlow app and create an account",
     "step2": "Open \"Rentals\" and tap Activate a Lease",
     "step3": "Enter this activation code"
   },
@@ -403,7 +403,7 @@
     "ownedProperties": "Owned Properties",
     "activeLeases": "Active Leases",
     "switchExperience": "Switch Experience",
-    "appVersion": "KeyNest v{{version}}"
+    "appVersion": "RentFlow v{{version}}"
   },
   "settings": {
     "title": "Settings",

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "KeyNest",
+    "name": "RentFlow",
     "slug": "keynest",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -32,9 +32,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "KeyNest needs access to your photos so you can upload property photos and attach evidence to maintenance requests.",
-          "cameraPermission": "KeyNest needs access to your camera so you can take photos and record videos for your properties and maintenance requests.",
-          "microphonePermission": "KeyNest needs access to your microphone to record videos."
+          "photosPermission": "RentFlow needs access to your photos so you can upload property photos and attach evidence to maintenance requests.",
+          "cameraPermission": "RentFlow needs access to your camera so you can take photos and record videos for your properties and maintenance requests.",
+          "microphonePermission": "RentFlow needs access to your microphone to record videos."
         }
       ],
       "@react-native-community/datetimepicker"

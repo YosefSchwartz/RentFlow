@@ -1,6 +1,6 @@
-# KeyNest Mobile
+# RentFlow Mobile
 
-Expo / React Native client for KeyNest — a property management platform for
+Expo / React Native client for RentFlow — a property management platform for
 small and medium landlords (2–20 properties). The backend REST API lives in
 [`../keynest`](../keynest).
 
@@ -17,7 +17,7 @@ small and medium landlords (2–20 properties). The backend REST API lives in
 ## Prerequisites
 
 - Node.js 18+
-- The KeyNest backend running and reachable (see `../keynest`)
+- The RentFlow backend running and reachable (see `../keynest`)
 - Expo Go on a device, or an iOS Simulator / Android Emulator
 
 ## Quick Start

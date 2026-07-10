@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "KeyNest",
+    "appName": "RentFlow",
     "loading": "טוען...",
     "error": "שגיאה",
     "success": "הצלחה",
@@ -39,7 +39,7 @@
     "firstName": "שם פרטי",
     "lastName": "שם משפחה",
     "createAccount": "צור חשבון",
-    "joinKeynest": "הצטרף ל-KeyNest היום",
+    "joinKeynest": "הצטרף ל-RentFlow היום",
     "tagline": "ניהול נכסים בפשטות",
     "noAccount": "אין לך חשבון? הירשם",
     "hasAccount": "יש לך כבר חשבון? התחבר",
@@ -368,9 +368,9 @@
     "label": "קוד הפעלה",
     "shareCode": "שתף קוד",
     "regenerate": "צור קוד חדש",
-    "shareMessage": "הצטרף לחוזה שלך ב-KeyNest! השתמש בקוד ההפעלה: {{code}}",
+    "shareMessage": "הצטרף לחוזה שלך ב-RentFlow! השתמש בקוד ההפעלה: {{code}}",
     "instructionsTitle": "הוראות לדייר",
-    "step1": "הורד את אפליקציית KeyNest וצור חשבון",
+    "step1": "הורד את אפליקציית RentFlow וצור חשבון",
     "step2": "פתח \"השכרות\" והקש על הפעלת חוזה",
     "step3": "הזן את קוד ההפעלה הזה"
   },
@@ -403,7 +403,7 @@
     "ownedProperties": "נכסים בבעלות",
     "activeLeases": "חוזים פעילים",
     "switchExperience": "החלף תצוגה",
-    "appVersion": "KeyNest v{{version}}"
+    "appVersion": "RentFlow v{{version}}"
   },
   "settings": {
     "title": "הגדרות",
