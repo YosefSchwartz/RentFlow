@@ -45,7 +45,7 @@ export class S3StorageProvider implements StorageProvider {
   private readonly isLocalStack: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    this.region = this.configService.get<string>('AWS_REGION', 'us-east-1');
+    this.region = this.configService.get<string>('AWS_REGION', 'eu-central-1');
     this.defaultBucket =
       this.configService.get<string>('AWS_S3_BUCKET') ||
       this.configService.get<string>('S3_BUCKET_NAME', 'keynest-local-documents');

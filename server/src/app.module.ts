@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { MediaModule } from './media/media.module';
@@ -20,6 +21,7 @@ import { NotificationsModule } from './notifications/notifications.module';
       // In production, real environment variables take precedence over both.
       envFilePath: ['.env.local', '.env'],
     }),
+    HealthModule,
     PrismaModule,
     StorageModule,
     MediaModule,

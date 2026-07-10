@@ -43,7 +43,7 @@ export interface MediaFileDto {
 }
 
 /**
- * The single media pipeline for ALL of KeyNest.
+ * The single media pipeline for ALL of RentFlow.
  *
  * Every uploaded file — documents, property photos/videos, maintenance
  * attachments, and future lease documents / inspection reports / signatures —
