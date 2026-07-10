@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "keynest/**"
+      - "server/**"
       - ".github/workflows/backend-deploy.yml"
   workflow_dispatch: {}
 
@@ -53,7 +53,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           IMAGE="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          docker build -t "$IMAGE" ./keynest
+          docker build -t "$IMAGE" ./server
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
