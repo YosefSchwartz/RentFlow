@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+#
+# The state bucket name must be GLOBALLY unique across all of AWS S3.
+# Convention: <project>-tfstate-<aws-account-id>
+
+project           = "rentflow"
+owner             = "yosef.schwartz@ryzebeyond.com"
+aws_region        = "eu-central-1"
+aws_profile       = "rentflow-staging" # active RentFlow SSO account that holds shared state
+state_bucket_name = "rentflow-tfstate-000000000000"
