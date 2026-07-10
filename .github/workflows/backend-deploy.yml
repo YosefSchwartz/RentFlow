@@ -1,0 +1,81 @@
+name: Backend Deploy (staging)
+
+# Builds the RentFlow backend image, pushes it to ECR, and rolls out the ECS
+# service. Authentication is via GitHub OIDC — there are NO AWS access keys.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "keynest/**"
+      - ".github/workflows/backend-deploy.yml"
+  workflow_dispatch: {}
+
+# OIDC: required to request the GitHub identity token.
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY: rentflow-staging-backend
+  ECS_CLUSTER: rentflow-staging-cluster
+  ECS_SERVICE: rentflow-staging-app
+  ECS_TASK_FAMILY: rentflow-staging-app
+  CONTAINER_NAME: app
+
+concurrency:
+  group: backend-deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No access keys — assume the deploy role via OIDC.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Tags are IMMUTABLE in ECR — tag by git SHA only (no "latest" overwrite).
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build -t "$IMAGE" ./keynest
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Fetch current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition > task-definition.json
+
+      - name: Render task definition with new image
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.IMAGE }}
+
+      # Registers the new task def, updates the service, and waits for stability.
+      - name: Deploy to ECS and wait
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
