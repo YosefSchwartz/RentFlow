@@ -1,8 +1,8 @@
-# KeyNest
+# RentFlow
 
 Property management platform for landlords managing 2-20 rental properties.
 
-This is the KeyNest **backend** (REST API). The Expo/React Native client lives
+This is the RentFlow **backend** (REST API). The Expo/React Native client lives
 in [`../keynest-mobile`](../keynest-mobile).
 
 ## Tech Stack
@@ -87,6 +87,19 @@ layer — there are no user roles and no `@Roles` decorator. In the tables below
 "Owner" means `Property.ownerId == currentUser.id`; "Tenant" means the current
 user holds an active `Lease` on the property. Every route except the auth
 endpoints noted below requires a `Bearer <accessToken>` header (`JwtAuthGuard`).
+
+### Health (`/api/health`)
+
+`GET /api/health` — unauthenticated liveness probe returning `{ "status": "ok" }`.
+Used by the container `HEALTHCHECK` and the AWS ALB target-group health check.
+When deploying, point the ALB `health_check_path` at `/api/health`.
+
+### Production image
+
+`Dockerfile` is a multi-stage, non-root build that runs under `dumb-init`
+(clean SIGTERM on ECS stops), sets `NODE_ENV=production`, includes a
+`HEALTHCHECK` against `/api/health`, and reuses the Prisma client generated in
+the build stage (pinned version, no runtime network fetch).
 
 ### Auth (`/api/auth`)
 
@@ -246,7 +259,7 @@ NODE_ENV=development
 
 # Storage (S3 / LocalStack) — see Storage & Media Architecture below
 STORAGE_PROVIDER=s3
-AWS_REGION=us-east-1
+AWS_REGION=eu-central-1
 AWS_ENDPOINT=http://localhost:4566   # LocalStack; leave empty for real AWS
 S3_PUBLIC_ENDPOINT=                  # optional; LAN IP for physical-device testing
 AWS_ACCESS_KEY_ID=test
@@ -282,7 +295,7 @@ npm run build
 
 ## Storage & Media Architecture
 
-Every uploaded file in KeyNest — documents, property photos/videos, maintenance
+Every uploaded file in RentFlow — documents, property photos/videos, maintenance
 attachments, and future lease/inspection/signature files — shares one media
 platform. Business meaning is fully separated from physical storage.
 

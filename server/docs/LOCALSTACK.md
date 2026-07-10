@@ -1,6 +1,6 @@
 # LocalStack Setup Guide
 
-This guide explains how to use LocalStack for local AWS development in KeyNest.
+This guide explains how to use LocalStack for local AWS development in RentFlow.
 
 ## Overview
 
@@ -52,7 +52,7 @@ Copy `.env.localstack.example` to `.env` or add these variables:
 
 ```env
 # AWS / LocalStack Configuration
-AWS_REGION=us-east-1
+AWS_REGION=eu-central-1
 AWS_ENDPOINT=http://localhost:4566
 AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
@@ -208,7 +208,7 @@ When deploying to production:
 
 1. **Create S3 Bucket**
    ```bash
-   aws s3 mb s3://keynest-production-documents --region us-east-1
+   aws s3 mb s3://keynest-production-documents --region eu-central-1
    ```
 
 2. **Configure CORS** (if using browser uploads)

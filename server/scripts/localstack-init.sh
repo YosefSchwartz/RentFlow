@@ -6,7 +6,7 @@
 set -e
 
 echo "=============================================="
-echo "Initializing KeyNest LocalStack environment..."
+echo "Initializing RentFlow LocalStack environment..."
 echo "=============================================="
 
 # Wait for LocalStack to be ready
@@ -39,7 +39,7 @@ awslocal s3 ls
 echo "Creating Secrets Manager secret placeholder..."
 awslocal secretsmanager create-secret \
   --name keynest/local/app-secrets \
-  --description "KeyNest application secrets (local development)" \
+  --description "RentFlow application secrets (local development)" \
   --secret-string '{"placeholder": "Replace with actual secrets when needed"}' \
   2>/dev/null || echo "Secret already exists"
 

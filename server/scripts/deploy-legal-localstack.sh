@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy KeyNest's static legal/support pages to LocalStack S3 static website
+# Deploy RentFlow's static legal/support pages to LocalStack S3 static website
 # hosting — a local simulation of the production S3/CloudFront hosting so we
 # never forget to ship these pages. Re-runnable (idempotent).
 #
@@ -11,7 +11,7 @@ set -euo pipefail
 
 ENDPOINT="${AWS_ENDPOINT:-http://localhost:4566}"
 PUBLIC_ENDPOINT="${S3_PUBLIC_ENDPOINT:-$ENDPOINT}"
-REGION="${AWS_REGION:-us-east-1}"
+REGION="${AWS_REGION:-eu-central-1}"
 BUCKET="${LEGAL_BUCKET:-keynest-legal}"
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"

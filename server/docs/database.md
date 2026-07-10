@@ -1,4 +1,4 @@
-# KeyNest Database Design
+# RentFlow Database Design
 
 PostgreSQL, implemented with Prisma. The authoritative schema is
 [`prisma/schema.prisma`](../prisma/schema.prisma) — this document summarizes it.

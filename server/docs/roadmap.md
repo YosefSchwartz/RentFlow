@@ -1,15 +1,15 @@
-# KeyNest Roadmap
+# RentFlow Roadmap
 
 > Status note: Phase 1 (MVP) is built, and several Phase 2/3 items already ship
 > today — AWS S3 (via LocalStack in dev) storage, English + Hebrew (RTL), and
-> in-app notifications. Note there is no "role management" line item: KeyNest
+> in-app notifications. Note there is no "role management" line item: RentFlow
 > intentionally has no user roles (capabilities derive from ownership + leases).
 
 ## Phase 1 - MVP (Foundation)
 
 ### Goal
 
-Validate that landlords actually replace WhatsApp with KeyNest.
+Validate that landlords actually replace WhatsApp with RentFlow.
 
 ### Features
 

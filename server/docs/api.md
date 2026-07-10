@@ -1,4 +1,4 @@
-# KeyNest API Design
+# RentFlow API Design
 
 > Design notes for the REST API. For the full, authoritative endpoint list see
 > the [backend README](../README.md#api). This document highlights the shape and

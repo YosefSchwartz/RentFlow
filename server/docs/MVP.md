@@ -1,4 +1,4 @@
-# KeyNest MVP
+# RentFlow MVP
 
 > **Note:** This is the original MVP vision/scope document. Some early
 > assumptions have since evolved — the shipped system has **no user roles**
@@ -11,7 +11,7 @@
 
 ## Vision
 
-KeyNest is a property management platform designed for small and medium landlords who manage between 2 and 20 rental properties.
+RentFlow is a property management platform designed for small and medium landlords who manage between 2 and 20 rental properties.
 
 The goal is to centralize property information, tenant communication, documents, and lease-related activities in a single platform instead of relying on WhatsApp, emails, and scattered files.
 

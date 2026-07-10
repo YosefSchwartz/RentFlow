@@ -1,6 +1,6 @@
 # Use-Case Flows
 
-Mermaid diagrams describing KeyNest's main use cases as flows (sequence /
+Mermaid diagrams describing RentFlow's main use cases as flows (sequence /
 flowchart). These document how the mobile app, REST API, and database
 collaborate for each core scenario.
 

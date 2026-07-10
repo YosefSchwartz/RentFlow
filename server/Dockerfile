@@ -1,60 +1,58 @@
-# Build stage
+# syntax=docker/dockerfile:1
+
+# ---------- Build stage ----------
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install OpenSSL for Prisma
+# OpenSSL is required by Prisma's query engine.
 RUN apk add --no-cache openssl
 
-# Copy package files
+# Install dependencies (with the pinned Prisma CLI from devDependencies).
 COPY package*.json ./
 COPY prisma ./prisma/
-
-# Install dependencies
 RUN npm ci
 
-# Generate Prisma client
+# Generate the Prisma client (uses the pinned CLI, not a network-fetched one).
 RUN npx prisma generate
 
-# Copy source code
+# Build the NestJS app.
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Verify build output
-RUN ls -la dist/
-
-# Production stage
+# ---------- Production stage ----------
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+ENV NODE_ENV=production
 
-# Copy package files
+# openssl for Prisma at runtime; dumb-init for correct PID 1 signal handling.
+RUN apk add --no-cache openssl dumb-init
+
+# Install production dependencies only.
 COPY package*.json ./
 COPY prisma ./prisma/
-
-# Install production dependencies only
 RUN npm ci --omit=dev
 
-# Generate Prisma client
-RUN npx prisma generate
+# Reuse the Prisma client generated in the builder (correct pinned version,
+# no network fetch, no dev Prisma CLI in the final image).
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-# Copy built application from builder
+# Application build output.
 COPY --from=builder /app/dist ./dist
 
-# Verify dist exists
-RUN ls -la dist/
-
-# Create non-root user
+# Run as a non-root user.
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001
-
 USER nestjs
 
 EXPOSE 3000
 
+# Liveness probe against the app's health endpoint (global prefix is /api).
+HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+
+# dumb-init as PID 1 so SIGTERM/SIGINT reach Node cleanly (graceful ECS stops).
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/src/main.js"]
