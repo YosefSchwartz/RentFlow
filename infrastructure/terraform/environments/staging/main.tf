@@ -21,6 +21,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   backend "s3" {}
@@ -97,6 +101,28 @@ module "database" {
   allowed_security_group_ids = [module.compute.ecs_security_group_id]
 }
 
+# --- Application secrets (backend runtime) ---
+# JWT signing secret for the backend. Generated here (never committed, never
+# passed as a tfvar) and stored in Secrets Manager, then injected into the ECS
+# task via the `secrets` block — the value never appears in the task definition
+# or in describe-task-definition output. Rotating it only invalidates the
+# outstanding 15-minute access tokens; DB-backed refresh sessions survive.
+resource "random_password" "jwt_secret" {
+  length  = 48
+  special = false # base62 — safe in any header/env without escaping
+}
+
+resource "aws_secretsmanager_secret" "jwt" {
+  name        = "${module.foundation.name_prefix}-jwt-secret"
+  description = "Backend JWT signing secret (HS256 access tokens)."
+  tags        = module.foundation.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "jwt" {
+  secret_id     = aws_secretsmanager_secret.jwt.id
+  secret_string = random_password.jwt_secret.result
+}
+
 # Layer 10 — Container registry. Private ECR repo for the backend image.
 module "container_registry" {
   source = "../../modules/container_registry"
@@ -131,14 +157,14 @@ module "compute" {
   max_capacity      = var.backend_max_capacity
 
   # --- Runtime configuration ---
-  # Non-secret config as plain env vars.
+  # Non-secret config as plain env vars. (The backend signs its OWN JWTs with
+  # JWT_SECRET and uses DB-backed sessions — it does NOT use Cognito — so no
+  # COGNITO_* vars are injected here.)
   container_environment = {
-    AWS_REGION           = var.aws_region
-    S3_BUCKET_NAME       = module.storage.bucket_name
-    COGNITO_USER_POOL_ID = module.identity.user_pool_id
-    COGNITO_CLIENT_ID    = module.identity.user_pool_client_id
-    COGNITO_ISSUER       = module.identity.issuer_url
-    JWT_SECRET           = var.jwt_secret
+    NODE_ENV       = "production"
+    PORT           = "3000"
+    AWS_REGION     = var.aws_region
+    S3_BUCKET_NAME = module.storage.bucket_name
 
     # Non-secret DB connection parts (used to compose DATABASE_URL below).
     DB_HOST = module.database.db_endpoint
@@ -146,13 +172,20 @@ module "compute" {
     DB_NAME = module.database.db_name
   }
 
-  # DB credentials come from the RDS-managed Secrets Manager secret (never
-  # hardcoded, never in state). Injected as env vars by the ECS agent.
+  # Secrets are resolved by the ECS agent at launch (execution role) and never
+  # appear in the task definition or state:
+  #   * DB credentials  — RDS-managed secret (JSON: username / password keys).
+  #   * JWT_SECRET      — our generated Secrets Manager secret (plain string).
   container_secrets = {
     DB_USERNAME = "${module.database.secret_arn}:username::"
     DB_PASSWORD = "${module.database.secret_arn}:password::"
+    JWT_SECRET  = aws_secretsmanager_secret.jwt.arn
   }
-  db_secret_arn = module.database.secret_arn
+  db_secret_arn   = module.database.secret_arn
+  app_secret_arns = [aws_secretsmanager_secret.jwt.arn]
+
+  # Least-privilege S3 access for the task role (documents / media / attachments).
+  s3_bucket_arn = module.storage.bucket_arn
 
   # Compose DATABASE_URL at container start from the injected parts. The
   # password is URL-encoded via node so any special character is safe. The
