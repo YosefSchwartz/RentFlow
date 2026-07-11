@@ -61,12 +61,9 @@ variable "backend_image_tag" {
   type = string
 }
 
-# JWT signing secret. Passed at apply, never committed. Injected as a plain
-# task-def env var (IAM is scoped to the RDS secret ARN only).
-variable "jwt_secret" {
-  type      = string
-  sensitive = true
-}
+# NOTE: the JWT signing secret is no longer a tfvar. It is generated in main.tf
+# (random_password) and stored in Secrets Manager, then injected into the ECS
+# task via the `secrets` block. See aws_secretsmanager_secret.jwt.
 
 variable "backend_cpu" {
   type    = number
