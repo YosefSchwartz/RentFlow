@@ -78,6 +78,10 @@ resource "aws_ecs_service" "this" {
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
+  # ECS Exec (`aws ecs execute-command`) — off by default; the task role gets
+  # the ssmmessages permissions only when this is enabled (see iam.tf).
+  enable_execute_command = var.enable_execute_command
+
   health_check_grace_period_seconds  = var.health_check_grace_period_seconds
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent

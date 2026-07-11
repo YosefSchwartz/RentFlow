@@ -40,3 +40,9 @@ variable "enable_dns_hostnames" {
   type        = bool
   default     = true
 }
+
+variable "additional_interface_endpoints" {
+  description = "Extra interface VPC endpoints to create (key => AWS service short-name), merged with the base set. E.g. { ssmmessages = \"ssmmessages\" } to allow ECS Exec on tasks in private subnets with no NAT."
+  type        = map(string)
+  default     = {}
+}

@@ -53,6 +53,12 @@ module "networking" {
   name_prefix = module.foundation.name_prefix
   tags        = module.foundation.common_tags
   vpc_cidr    = var.vpc_cidr
+
+  # ssmmessages interface endpoint so ECS Exec can reach SSM from the private
+  # app subnets (no NAT). Required by compute's enable_execute_command below.
+  additional_interface_endpoints = {
+    ssmmessages = "ssmmessages"
+  }
 }
 
 # Layer 4 — Security baseline. VPC flow logs → CloudWatch (least-privilege role).
@@ -150,11 +156,15 @@ module "compute" {
   container_image   = "${module.container_registry.repository_url}:${var.backend_image_tag}"
   container_port    = 3000
   health_check_path = "/api/health"
-  cpu               = var.backend_cpu
-  memory            = var.backend_memory
-  desired_count     = var.backend_desired_count
-  min_capacity      = var.backend_min_capacity
-  max_capacity      = var.backend_max_capacity
+
+  # ECS Exec for interactive debugging (aws ecs execute-command). Needs the
+  # ssmmessages endpoint wired into the networking module above.
+  enable_execute_command = true
+  cpu                    = var.backend_cpu
+  memory                 = var.backend_memory
+  desired_count          = var.backend_desired_count
+  min_capacity           = var.backend_min_capacity
+  max_capacity           = var.backend_max_capacity
 
   # --- Runtime configuration ---
   # Non-secret config as plain env vars. (The backend signs its OWN JWTs with

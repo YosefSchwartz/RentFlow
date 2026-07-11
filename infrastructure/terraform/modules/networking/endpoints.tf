@@ -16,13 +16,18 @@
 # ----------------------------------------------------------------------------
 
 locals {
-  # Interface endpoint service short-names (region prefixed at use).
-  interface_endpoint_services = {
-    ecr_api        = "ecr.api"
-    ecr_dkr        = "ecr.dkr"
-    logs           = "logs"
-    secretsmanager = "secretsmanager"
-  }
+  # Interface endpoint service short-names (region prefixed at use). The base
+  # set covers image pulls, logs, and secrets; callers can add more (e.g.
+  # ssmmessages for ECS Exec) via var.additional_interface_endpoints.
+  interface_endpoint_services = merge(
+    {
+      ecr_api        = "ecr.api"
+      ecr_dkr        = "ecr.dkr"
+      logs           = "logs"
+      secretsmanager = "secretsmanager"
+    },
+    var.additional_interface_endpoints,
+  )
 }
 
 # --- Endpoint security group: HTTPS from the app subnets only ---

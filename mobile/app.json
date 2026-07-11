@@ -20,11 +20,14 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.keynest.app"
+      "package": "com.keynest.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "c58e0ed5-308c-45c7-a5b4-6530aa21d63e"
       }
     },
     "plugins": [
@@ -38,6 +41,7 @@
         }
       ],
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "owner": "yosef0101"
   }
 }
