@@ -21,6 +21,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   backend "s3" {}
@@ -97,6 +101,26 @@ module "database" {
   allowed_security_group_ids = [module.compute.ecs_security_group_id]
 }
 
+# --- Application secrets (backend runtime) ---
+# JWT signing secret — generated here, stored in Secrets Manager, injected into
+# the ECS task via the `secrets` block. Never committed, never a tfvar, never
+# in the task definition. (Mirrors staging.)
+resource "random_password" "jwt_secret" {
+  length  = 48
+  special = false # base62 — safe in any header/env without escaping
+}
+
+resource "aws_secretsmanager_secret" "jwt" {
+  name        = "${module.foundation.name_prefix}-jwt-secret"
+  description = "Backend JWT signing secret (HS256 access tokens)."
+  tags        = module.foundation.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "jwt" {
+  secret_id     = aws_secretsmanager_secret.jwt.id
+  secret_string = random_password.jwt_secret.result
+}
+
 # Layer 10 — Container registry. Private ECR repo for the backend image.
 module "container_registry" {
   source = "../../modules/container_registry"
@@ -129,24 +153,28 @@ module "compute" {
   max_capacity      = var.backend_max_capacity
 
   # --- Runtime configuration (mirrors staging) ---
+  # Backend signs its own JWTs + uses DB-backed sessions (no Cognito).
   container_environment = {
-    AWS_REGION           = var.aws_region
-    S3_BUCKET_NAME       = module.storage.bucket_name
-    COGNITO_USER_POOL_ID = module.identity.user_pool_id
-    COGNITO_CLIENT_ID    = module.identity.user_pool_client_id
-    COGNITO_ISSUER       = module.identity.issuer_url
-    JWT_SECRET           = var.jwt_secret
+    NODE_ENV       = "production"
+    PORT           = "3000"
+    AWS_REGION     = var.aws_region
+    S3_BUCKET_NAME = module.storage.bucket_name
 
     DB_HOST = module.database.db_endpoint
     DB_PORT = tostring(module.database.db_port)
     DB_NAME = module.database.db_name
   }
 
+  # Resolved by the ECS agent at launch (execution role); never in state/task def.
   container_secrets = {
     DB_USERNAME = "${module.database.secret_arn}:username::"
     DB_PASSWORD = "${module.database.secret_arn}:password::"
+    JWT_SECRET  = aws_secretsmanager_secret.jwt.arn
   }
-  db_secret_arn = module.database.secret_arn
+  db_secret_arn   = module.database.secret_arn
+  app_secret_arns = [aws_secretsmanager_secret.jwt.arn]
+
+  s3_bucket_arn = module.storage.bucket_arn
 
   container_command = [
     "/bin/sh", "-c",
