@@ -63,15 +63,10 @@ variable "backend_image_tag" {
   type = string
 }
 
-# JWT signing secret for the backend. Passed at apply time, never committed:
-#   tofu apply ... -var "jwt_secret=$(openssl rand -base64 48)"
-# NOTE: injected as a plain task-def env var, because IAM is intentionally
-# scoped to the RDS secret ARN only (per requirement). Move to a dedicated
-# Secrets Manager secret + scoped grant when that constraint is relaxed.
-variable "jwt_secret" {
-  type      = string
-  sensitive = true
-}
+# NOTE: the JWT signing secret is no longer a tfvar. It is generated in
+# main.tf (random_password) and stored in Secrets Manager, then injected into
+# the ECS task via the `secrets` block — never committed, never in a task-def
+# env var. See aws_secretsmanager_secret.jwt.
 
 variable "backend_cpu" {
   type    = number
@@ -101,7 +96,7 @@ variable "backend_max_capacity" {
 # --- CI/CD (Layer 11) ---
 variable "github_repository" {
   type    = string
-  default = "your-github-org/rentflow" # override with the real owner/repo before applying cicd
+  default = "YosefSchwartz/RentFlow" # override with the real owner/repo before applying cicd
 }
 
 variable "github_branch" {
