@@ -89,6 +89,18 @@ variable "db_secret_arn" {
   default     = null
 }
 
+variable "app_secret_arns" {
+  description = "Additional Secrets Manager secret ARNs the EXECUTION role may read for the `secrets` block (e.g. the JWT signing secret). Scoped to exactly these ARNs, no wildcards."
+  type        = list(string)
+  default     = []
+}
+
+variable "s3_bucket_arn" {
+  description = "S3 bucket ARN the TASK role may read/write for application files (documents, media, attachments). Null = grant nothing."
+  type        = string
+  default     = null
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Logs retention for container logs."
   type        = number
