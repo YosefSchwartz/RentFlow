@@ -59,6 +59,11 @@ module "networking" {
   additional_interface_endpoints = {
     ssmmessages = "ssmmessages"
   }
+
+  # TEMPORARY: internet route on the DB route table for IP-restricted DataGrip
+  # access to RDS. Reachability is still gated by the DB SG (/32). Set back to
+  # false (with publicly_accessible=false) to re-isolate the database.
+  enable_db_internet_route = true
 }
 
 # Layer 4 — Security baseline. VPC flow logs → CloudWatch (least-privilege role).
@@ -97,14 +102,24 @@ module "database" {
 
   vpc_id     = module.networking.vpc_id
   subnet_ids = module.networking.private_db_subnet_ids
+  # TEMPORARY developer access: the instance already has a public IP
+  # (publicly_accessible=true); the DB route table is given an internet route
+  # below (networking enable_db_internet_route) so that IP is reachable, without
+  # relocating the running instance. Reachability is still gated by the /32 SG
+  # rule. Revert publicly_accessible=false + enable_db_internet_route=false to
+  # re-isolate the DB.
+  publicly_accessible = true
 
   instance_class               = var.db_instance_class
   multi_az                     = var.db_multi_az
   backup_retention_period      = var.db_backup_retention_days
   performance_insights_enabled = var.db_performance_insights_enabled
 
-  # Open PostgreSQL to the backend tasks only (Layer 8).
+  # Open PostgreSQL to the backend tasks only (Layer 8)...
   allowed_security_group_ids = [module.compute.ecs_security_group_id]
+  # ...plus a single developer laptop for DataGrip. NOT 0.0.0.0/0 (the module
+  # validation forbids it). Update this /32 when your ISP-assigned IP changes.
+  allowed_cidr_blocks = ["5.29.8.73/32"]
 }
 
 # --- Application secrets (backend runtime) ---

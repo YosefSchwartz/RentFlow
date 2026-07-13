@@ -12,10 +12,18 @@
       "android": {
         "buildType": "apk"
       },
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://rentflow-staging-alb-2122267979.eu-central-1.elb.amazonaws.com/api",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyCL_qc2DchGznsE0vmpZJi27hQs0Bz1cbo"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://rentflow-staging-alb-2122267979.eu-central-1.elb.amazonaws.com/api",
+        "EXPO_PUBLIC_GOOGLE_PLACES_API_KEY": "AIzaSyCL_qc2DchGznsE0vmpZJi27hQs0Bz1cbo"
+      }
     }
   },
   "submit": {

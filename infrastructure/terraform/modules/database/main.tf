@@ -61,7 +61,7 @@ resource "aws_db_instance" "this" {
   # --- Networking: private only ---
   db_subnet_group_name   = aws_db_subnet_group.this.name
   vpc_security_group_ids = [aws_security_group.db.id]
-  publicly_accessible    = false
+  publicly_accessible    = var.publicly_accessible
 
   # --- Availability + backups + protection ---
   multi_az                  = var.multi_az

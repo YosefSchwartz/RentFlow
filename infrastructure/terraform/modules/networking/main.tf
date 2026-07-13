@@ -114,3 +114,15 @@ resource "aws_route_table_association" "database" {
   subnet_id      = each.value.id
   route_table_id = aws_route_table.database.id
 }
+
+# OPT-IN internet path for the DB tier. Off by default (the DB stays isolated).
+# Enabled only for temporary, security-group-restricted developer access — it
+# makes the DB subnets internet-routable, but reachability is still gated by the
+# database security group (e.g. a single /32). Disable to re-isolate.
+resource "aws_route" "database_internet" {
+  count = var.enable_db_internet_route ? 1 : 0
+
+  route_table_id         = aws_route_table.database.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this.id
+}

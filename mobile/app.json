@@ -3,6 +3,12 @@
     "name": "RentFlow",
     "slug": "keynest",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c58e0ed5-308c-45c7-a5b4-6530aa21d63e"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -40,7 +46,17 @@
           "microphonePermission": "RentFlow needs access to your microphone to record videos."
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-localization",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-font"
     ],
     "owner": "yosef0101"
   }

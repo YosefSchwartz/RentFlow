@@ -41,6 +41,13 @@ variable "allowed_cidr_blocks" {
   }
 }
 
+# --- Public access (keep false except for controlled, IP-restricted access) ---
+variable "publicly_accessible" {
+  description = "Assign the instance a public IP. Keep false except for temporary, CIDR-restricted access (e.g. a developer laptop). Requires the subnet group to use public subnets and matching allowed_cidr_blocks."
+  type        = bool
+  default     = false
+}
+
 # --- Engine / sizing ---
 variable "engine_version" {
   description = "PostgreSQL major (or major.minor) version."

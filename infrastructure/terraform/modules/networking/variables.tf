@@ -46,3 +46,9 @@ variable "additional_interface_endpoints" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_db_internet_route" {
+  description = "Add a 0.0.0.0/0 -> IGW route to the DATABASE route table, making the DB subnets internet-routable. Keep FALSE (the DB tier is isolated by default); enable ONLY for temporary, SG-restricted developer access (e.g. DataGrip). Reachability is still gated by the DB security group."
+  type        = bool
+  default     = false
+}
