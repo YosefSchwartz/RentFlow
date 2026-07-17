@@ -32,7 +32,7 @@ Manager. Creates **no plaintext passwords, no credentials in code/state**.
 
 ## Credentials — Secrets Manager, never in state
 
-Uses **`manage_master_user_password = true`**: RDS generates the master password,
+Uses **`manage_master_user_password = false`**: RDS generates the master password,
 stores it in a Secrets Manager secret, and manages rotation. The password never
 appears in Terraform variables, state, or this repo. Consumers read the secret
 via `secret_arn` (grant `secretsmanager:GetSecretValue` on that ARN only).

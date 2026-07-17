@@ -39,14 +39,23 @@ export class PropertyMediaService {
     private readonly storedFileService: StoredFileService,
   ) {}
 
-  /** Map a media row (+ its StoredFile) to the public response shape. */
-  private toResponse(media: PropertyMediaWithFile): PropertyMediaResponse {
+  /**
+   * Map a media row (+ its StoredFile) to the public response shape.
+   *
+   * The storage bucket is private (no public read access), so the URL the
+   * client renders directly (grid thumbnails, full-screen viewer) must be a
+   * signed, time-limited download URL rather than the bare public URL.
+   */
+  private async toResponse(
+    media: PropertyMediaWithFile,
+  ): Promise<PropertyMediaResponse> {
     const file = this.storedFileService.toDto(media.storedFile);
+    const url = await this.storedFileService.getDownloadUrl(media.storedFile);
     return {
       id: media.id,
       propertyId: media.propertyId,
       type: media.type,
-      url: file.url,
+      url,
       fileName: file.originalFilename,
       mimeType: file.mimeType,
       size: file.size,
@@ -74,7 +83,7 @@ export class PropertyMediaService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return media.map((m) => this.toResponse(m));
+    return Promise.all(media.map((m) => this.toResponse(m)));
   }
 
   /** Upload a media file to a property's gallery. Only the owner may upload. */

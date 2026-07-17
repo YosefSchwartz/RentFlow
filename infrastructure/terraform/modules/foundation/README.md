@@ -58,7 +58,7 @@ because they only warn; a data-source `postcondition` fails the plan.
 | `environment` | — (required) | `staging` / `production`. |
 | `aws_region` | `eu-central-1` | Must be `eu-central-1`. |
 | `aws_account_id` | — (required) | Expected 12-digit account for this env. |
-| `owner` | `yosef.schwartz@ryzebeyond.com` | Owner tag. |
+| `owner` | `yosef.sh05@gmail.com` | Owner tag. |
 | `additional_tags` | `{}` | Merged on top of the standard tags. |
 
 ## Outputs

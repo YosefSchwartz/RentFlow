@@ -4,7 +4,7 @@
 # Convention: <project>-tfstate-<aws-account-id>
 
 project           = "rentflow"
-owner             = "yosef.schwartz@ryzebeyond.com"
+owner             = "yosef.sh05@gmail.com"
 aws_region        = "eu-central-1"
 aws_profile       = "rentflow-staging" # active RentFlow SSO account that holds shared state
 state_bucket_name = "rentflow-tfstate-000000000000"

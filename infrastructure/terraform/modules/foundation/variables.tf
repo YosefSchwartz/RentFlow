@@ -51,7 +51,7 @@ variable "aws_account_id" {
 variable "owner" {
   description = "Owner tag applied to every resource."
   type        = string
-  default     = "yosef.schwartz@ryzebeyond.com"
+  default     = "yosef.sh05@gmail.com"
 }
 
 variable "additional_tags" {

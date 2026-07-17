@@ -39,15 +39,23 @@ export class MaintenanceAttachmentsService {
     private readonly storedFileService: StoredFileService,
   ) {}
 
-  private toResponse(
+  /**
+   * The storage bucket is private (no public read access), so the URL the
+   * client renders directly (grid thumbnails, full-screen viewer) must be a
+   * signed, time-limited download URL rather than the bare public URL.
+   */
+  private async toResponse(
     attachment: AttachmentWithFile,
-  ): MaintenanceAttachmentResponse {
+  ): Promise<MaintenanceAttachmentResponse> {
     const file = this.storedFileService.toDto(attachment.storedFile);
+    const url = await this.storedFileService.getDownloadUrl(
+      attachment.storedFile,
+    );
     return {
       id: attachment.id,
       maintenanceRequestId: attachment.maintenanceRequestId,
       type: attachment.type,
-      url: file.url,
+      url,
       fileName: file.originalFilename,
       mimeType: file.mimeType,
       size: file.size,
@@ -93,7 +101,7 @@ export class MaintenanceAttachmentsService {
       orderBy: { createdAt: 'asc' },
     });
 
-    return attachments.map((a) => this.toResponse(a));
+    return Promise.all(attachments.map((a) => this.toResponse(a)));
   }
 
   /**

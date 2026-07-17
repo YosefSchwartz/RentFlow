@@ -114,7 +114,7 @@ resource "aws_secretsmanager_secret" "jwt" {
   name        = "${module.foundation.name_prefix}-jwt-secret"
   description = "Backend JWT signing secret (HS256 access tokens)."
   tags        = module.foundation.common_tags
-}
+} 
 
 resource "aws_secretsmanager_secret_version" "jwt" {
   secret_id     = aws_secretsmanager_secret.jwt.id

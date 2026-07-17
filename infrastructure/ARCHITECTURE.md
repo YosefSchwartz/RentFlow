@@ -283,10 +283,10 @@ data. Consumes Foundation (naming/tags) and Networking (`vpc_id`,
 ```
   RDS ──generates master password──► Secrets Manager secret (RDS-managed, rotatable)
                                             │  secret_arn (output)
-  Terraform state ── contains NO password ──┘   (manage_master_user_password = true)
+  Terraform state ── contains NO password ──┘   (manage_master_user_password = false)
 ```
 
-- `manage_master_user_password = true` — RDS creates and owns the master
+- `manage_master_user_password = false` — RDS creates and owns the master
   credential secret; the password never enters Terraform variables, **state**, or
   the repository.
 - The module exposes only `secret_arn` (never the password). Consumers get
@@ -468,11 +468,11 @@ ARNs; nothing depends on it (no cycle).
 ### Deployment process (`.github/workflows/backend-deploy.yml`)
 
 ```
- push to main (keynest/**)
+ push to main (server/**)
    → checkout
    → configure-aws-credentials (OIDC → deploy role)
    → ECR login
-   → docker build ./keynest, tag = git SHA   (tags are IMMUTABLE — SHA only)
+   → docker build ./server, tag = git SHA   (tags are IMMUTABLE — SHA only)
    → docker push
    → describe current task definition → render with the new image
    → deploy task definition → update service → wait for stability

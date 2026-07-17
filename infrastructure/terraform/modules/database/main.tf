@@ -54,7 +54,7 @@ resource "aws_db_instance" "this" {
   # --- Database + credentials (RDS-managed secret; no password in state) ---
   db_name                       = var.database_name
   username                      = var.master_username
-  manage_master_user_password   = true
+  manage_master_user_password   = false
   master_user_secret_kms_key_id = var.kms_key_arn
   port                          = local.port
 
