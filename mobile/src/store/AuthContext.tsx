@@ -10,12 +10,20 @@ import {
 import { queryClient } from '../lib/queryClient';
 import type { User, LoginRequest, RegisterRequest } from '../types';
 
+export interface RegisterResult {
+  requiresVerification: boolean;
+  email: string;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<RegisterResult>;
+  completeEmailVerification: (email: string, code: string) => Promise<void>;
+  completePasswordReset: (email: string, code: string, newPassword: string) => Promise<void>;
+  updateUser: (user: User) => Promise<void>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
 }
@@ -72,9 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
   }, []);
 
-  const login = useCallback(async (data: LoginRequest) => {
-    const response = await authApi.login(data);
-
+  // Shared by login/register/completeEmailVerification — all three receive
+  // the same {accessToken, refreshToken, user} shape and complete a session
+  // identically.
+  const applySession = useCallback(async (response: unknown) => {
     // Handle response - support both direct and nested formats
     const res = response as any;
     const accessToken = res.accessToken || res.access_token || res.token;
@@ -96,28 +105,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
   }, []);
 
-  const register = useCallback(async (data: RegisterRequest) => {
-    const response = await authApi.register(data);
+  const login = useCallback(
+    async (data: LoginRequest) => {
+      const response = await authApi.login(data);
+      await applySession(response);
+    },
+    [applySession],
+  );
 
-    // Handle response - support both direct and nested formats
-    const res = response as any;
-    const accessToken = res.accessToken || res.access_token || res.token;
-    const refreshToken = res.refreshToken || res.refresh_token;
-    const userData = res.user || res;
+  const register = useCallback(
+    async (data: RegisterRequest): Promise<RegisterResult> => {
+      const response = await authApi.register(data);
 
-    if (!accessToken || !refreshToken) {
-      console.error('Auth response:', JSON.stringify(response));
-      throw new Error('Invalid token response - missing tokens');
-    }
+      // The normal path: a brand-new account has no tokens yet — it still
+      // needs to verify its email via VerifyEmailScreen.
+      const res = response as any;
+      const accessToken = res.accessToken || res.access_token || res.token;
+      if (!accessToken) {
+        return { requiresVerification: true, email: response.email };
+      }
 
-    if (!userData || !userData.id) {
-      console.error('Auth response:', JSON.stringify(response));
-      throw new Error('Invalid token response - missing user data');
-    }
+      // Defensive fallback only — kept in case a future/older backend still
+      // auto-authenticates on register.
+      await applySession(response);
+      return { requiresVerification: false, email: response.email };
+    },
+    [applySession],
+  );
 
-    await storeTokens(accessToken, refreshToken);
-    await storeUser(userData);
-    setUser(userData);
+  const completeEmailVerification = useCallback(
+    async (email: string, code: string) => {
+      const response = await authApi.verifyEmail({ email, code });
+      await applySession(response);
+    },
+    [applySession],
+  );
+
+  const completePasswordReset = useCallback(
+    async (email: string, code: string, newPassword: string) => {
+      const response = await authApi.resetPassword({ email, code, newPassword });
+      await applySession(response);
+    },
+    [applySession],
+  );
+
+  const updateUser = useCallback(async (updatedUser: User) => {
+    setUser(updatedUser);
+    await storeUser(updatedUser);
   }, []);
 
   const logout = useCallback(async () => {
@@ -151,6 +185,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!user,
     login,
     register,
+    completeEmailVerification,
+    completePasswordReset,
+    updateUser,
     logout,
     logoutAll,
   };

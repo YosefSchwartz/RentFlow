@@ -9,6 +9,7 @@ import { MediaType } from '@prisma/client';
 
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+export const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB — smaller than the general image cap
 
 // jpg/jpeg -> image/jpeg, png -> image/png, heic/heif -> image/heic|heif
 export const IMAGE_MIME_TYPES = [
@@ -29,6 +30,9 @@ export const ACCEPTED_MEDIA_MIME_TYPES = [
 /** Regex form for NestJS FileTypeValidator (a coarse guard at the controller). */
 export const MEDIA_MIME_TYPE_REGEX =
   /^(image\/(jpeg|png|heic|heif)|video\/(mp4|quicktime))$/;
+
+/** Images only (no video) — avatars. */
+export const IMAGE_MIME_TYPE_REGEX = /^image\/(jpeg|png|heic|heif)$/;
 
 /** Resolve the domain media type from a MIME type, or null if unsupported. */
 export function resolveMediaType(mimeType: string): MediaType | null {
@@ -59,4 +63,22 @@ export function validateMediaFile(mimeType: string, size: number): MediaType {
   }
 
   return type;
+}
+
+/**
+ * Validate an avatar image's MIME type and size. Images only (no video),
+ * smaller cap than the general image limit. Throws BadRequestException on
+ * failure.
+ */
+export function validateAvatarFile(mimeType: string, size: number): void {
+  if (!IMAGE_MIME_TYPES.includes(mimeType)) {
+    throw new BadRequestException(
+      `Unsupported file type "${mimeType}". Allowed: jpg, jpeg, png, heic.`,
+    );
+  }
+
+  if (size > MAX_AVATAR_SIZE) {
+    const maxMb = Math.round(MAX_AVATAR_SIZE / (1024 * 1024));
+    throw new BadRequestException(`Image exceeds the maximum size of ${maxMb} MB.`);
+  }
 }

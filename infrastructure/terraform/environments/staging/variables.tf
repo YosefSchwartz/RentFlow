@@ -93,6 +93,15 @@ variable "backend_max_capacity" {
   default = 6
 }
 
+# --- Notifications (Layer 9) ---
+# Single verified SES sender identity. No default: supply at apply time, e.g.
+#   tofu apply -var-file=environments/staging/staging.tfvars -var "ses_sender_email=noreply@example.com"
+# AWS emails a confirmation link to this address that must be clicked once —
+# see modules/notifications/README.md.
+variable "ses_sender_email" {
+  type = string
+}
+
 # --- CI/CD (Layer 11) ---
 variable "github_repository" {
   type    = string

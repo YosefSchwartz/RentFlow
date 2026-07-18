@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../store/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useUnreadNotificationsCount } from '../../hooks/useNotifications';
+import { getInitials } from '../../utils/userDisplay';
 import type { RootStackParamList, ProfileStackParamList } from '../../types';
 
 type RootNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -55,14 +56,14 @@ const ProfileScreen: React.FC = () => {
     profileNavigation.navigate('Settings');
   };
 
+  const handleEditProfile = () => {
+    profileNavigation.navigate('EditProfile');
+  };
+
   const handleNotifications = () => {
     profileNavigation.navigate('Notifications');
   };
 
-  const getInitials = () => {
-    if (!user) return '?';
-    return `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase();
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -92,14 +93,26 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.header}>
-          <Avatar.Text
-            size={80}
-            label={getInitials()}
-            style={{ backgroundColor: theme.colors.primary }}
-          />
-          <Text variant="headlineSmall" style={styles.name}>
-            {user?.firstName} {user?.lastName}
-          </Text>
+          {user?.avatarUrl ? (
+            <Avatar.Image size={80} source={{ uri: user.avatarUrl }} />
+          ) : (
+            <Avatar.Text
+              size={80}
+              label={getInitials(user)}
+              style={{ backgroundColor: theme.colors.primary }}
+            />
+          )}
+          <View style={styles.nameRow}>
+            <Text variant="headlineSmall" style={styles.name}>
+              {user?.firstName} {user?.lastName}
+            </Text>
+            <IconButton
+              icon="pencil"
+              size={18}
+              onPress={handleEditProfile}
+              accessibilityLabel={t('profile.editProfile.title')}
+            />
+          </View>
         </View>
 
         {/* User Info Card */}
@@ -233,9 +246,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+  },
   name: {
     fontWeight: 'bold',
-    marginTop: 16,
   },
   card: {
     marginBottom: 16,

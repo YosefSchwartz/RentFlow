@@ -144,6 +144,37 @@ resource "aws_secretsmanager_secret_version" "jwt" {
   secret_string = random_password.jwt_secret.result
 }
 
+# OTP hashing secret (HMAC-SHA256 of email-verification / password-reset
+# codes). Deliberately separate from JWT_SECRET — rotating one never
+# invalidates the other. Same generate/store/inject pattern as jwt_secret
+# above.
+resource "random_password" "otp_secret" {
+  length  = 48
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "otp" {
+  name        = "${module.foundation.name_prefix}-otp-secret"
+  description = "Backend OTP hashing secret (HMAC-SHA256 email verification / password reset codes)."
+  tags        = module.foundation.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "otp" {
+  secret_id     = aws_secretsmanager_secret.otp.id
+  secret_string = random_password.otp_secret.result
+}
+
+# Layer 9 — Notifications. SES for transactional OTP email. No dependency on
+# compute; compute depends on its ses_identity_arn output below (same shape
+# as the existing compute -> container_registry dependency).
+module "notifications" {
+  source = "../../modules/notifications"
+
+  name_prefix      = module.foundation.name_prefix
+  tags             = module.foundation.common_tags
+  ses_sender_email = var.ses_sender_email
+}
+
 # Layer 10 — Container registry. Private ECR repo for the backend image.
 module "container_registry" {
   source = "../../modules/container_registry"
@@ -195,22 +226,34 @@ module "compute" {
     DB_HOST = module.database.db_endpoint
     DB_PORT = tostring(module.database.db_port)
     DB_NAME = module.database.db_name
+
+    # OTP email delivery. Sender address and region aren't secrets. Start on
+    # "console" (logs instead of sending) until the SES identity's
+    # confirmation link has been clicked (see modules/notifications/README.md),
+    # then flip to "ses" in a follow-up deploy.
+    EMAIL_PROVIDER   = "console"
+    SES_SENDER_EMAIL = module.notifications.sender_email
   }
 
   # Secrets are resolved by the ECS agent at launch (execution role) and never
   # appear in the task definition or state:
   #   * DB credentials  — RDS-managed secret (JSON: username / password keys).
   #   * JWT_SECRET      — our generated Secrets Manager secret (plain string).
+  #   * OTP_SECRET      — our generated Secrets Manager secret (plain string).
   container_secrets = {
     DB_USERNAME = "${module.database.secret_arn}:username::"
     DB_PASSWORD = "${module.database.secret_arn}:password::"
     JWT_SECRET  = aws_secretsmanager_secret.jwt.arn
+    OTP_SECRET  = aws_secretsmanager_secret.otp.arn
   }
   db_secret_arn   = module.database.secret_arn
-  app_secret_arns = [aws_secretsmanager_secret.jwt.arn]
+  app_secret_arns = [aws_secretsmanager_secret.jwt.arn, aws_secretsmanager_secret.otp.arn]
 
   # Least-privilege S3 access for the task role (documents / media / attachments).
   s3_bucket_arn = module.storage.bucket_arn
+  # Least-privilege SES send access for the task role (OTP emails), scoped to
+  # the one verified sender identity.
+  ses_identity_arn = module.notifications.ses_identity_arn
 
   # Compose DATABASE_URL at container start from the injected parts. The
   # password is URL-encoded via node so any special character is safe. The

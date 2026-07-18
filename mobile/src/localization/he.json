@@ -23,6 +23,7 @@
     "copy": "העתק",
     "copied": "הועתק ללוח!",
     "notAvailable": "לא זמין",
+    "discard": "בטל שינויים",
     "viewDetails": "צפה בפרטים",
     "goBack": "חזור",
     "later": "מאוחר יותר",
@@ -44,6 +45,31 @@
     "noAccount": "אין לך חשבון? הירשם",
     "hasAccount": "יש לך כבר חשבון? התחבר",
     "passwordMinLength": "סיסמה (לפחות 8 תווים)",
+    "passwordPolicyHint": "לפחות 8 תווים, עם אות גדולה, אות קטנה, ספרה ותו מיוחד",
+    "forgotPassword": {
+      "title": "שכחת סיסמה?",
+      "subtitle": "הזן את כתובת האימייל שלך ונשלח לך קוד לאיפוס",
+      "sendButton": "שלח קוד איפוס",
+      "link": "שכחת סיסמה?",
+      "checkEmail": "אם קיים חשבון עבור כתובת זו, נשלח קוד איפוס"
+    },
+    "resetPassword": {
+      "title": "איפוס סיסמה",
+      "newPassword": "סיסמה חדשה",
+      "confirmNewPassword": "אשר סיסמה חדשה",
+      "saveButton": "אפס סיסמה"
+    },
+    "verifyEmail": {
+      "title": "אימות כתובת אימייל",
+      "subtitle": "הזן את קוד בן 6 הספרות שנשלח ל-{{email}}",
+      "verifyButton": "אמת",
+      "resendButton": "שלח קוד מחדש",
+      "resendCooldown": "שליחה חוזרת בעוד {{seconds}} שניות",
+      "resendSuccess": "קוד חדש נשלח",
+      "resendError": "לא ניתן לשלוח את הקוד מחדש. אנא נסה שנית.",
+      "verifyNowCta": "אמת עכשיו",
+      "invalidCode": "אנא הזן קוד בן 6 ספרות"
+    },
     "errors": {
       "fillAllFields": "אנא מלא את כל השדות",
       "fillRequiredFields": "אנא מלא את כל השדות הנדרשים",
@@ -52,8 +78,14 @@
       "passwordMaxLength": "הסיסמה חייבת להכיל לכל היותר 50 תווים",
       "invalidEmail": "אנא הזן כתובת אימייל תקינה",
       "nameMaxLength": "שם פרטי ושם משפחה חייבים להכיל לכל היותר 50 תווים כל אחד",
+      "phoneMinLength": "אנא הזן מספר טלפון תקין",
       "loginFailed": "ההתחברות נכשלה. אנא נסה שנית.",
-      "registerFailed": "ההרשמה נכשלה. אנא נסה שנית."
+      "registerFailed": "ההרשמה נכשלה. אנא נסה שנית.",
+      "emailNotVerified": "כתובת האימייל שלך עדיין לא אומתה.",
+      "passwordNeedsLower": "הסיסמה חייבת להכיל אות קטנה",
+      "passwordNeedsUpper": "הסיסמה חייבת להכיל אות גדולה",
+      "passwordNeedsDigit": "הסיסמה חייבת להכיל ספרה",
+      "passwordNeedsSpecial": "הסיסמה חייבת להכיל תו מיוחד"
     }
   },
   "navigation": {
@@ -403,7 +435,20 @@
     "ownedProperties": "נכסים בבעלות",
     "activeLeases": "חוזים פעילים",
     "switchExperience": "החלף תצוגה",
-    "appVersion": "RentFlow v{{version}}"
+    "appVersion": "RentFlow v{{version}}",
+    "editProfile": {
+      "title": "עריכת פרופיל",
+      "saveButton": "שמור",
+      "saveSuccess": "הפרופיל עודכן",
+      "saveError": "לא ניתן לעדכן את הפרופיל. אנא נסה שנית.",
+      "unsavedChangesTitle": "לבטל שינויים?",
+      "unsavedChangesMessage": "יש לך שינויים שלא נשמרו. האם אתה בטוח שברצונך לצאת?",
+      "changePhoto": "שנה תמונה",
+      "takePhoto": "צלם תמונה",
+      "chooseFromLibrary": "בחר מהגלריה",
+      "avatarUploadError": "לא ניתן להעלות את התמונה. אנא נסה שנית.",
+      "avatarPermissionDenied": "ההרשאה למצלמה/גלריה נדחתה. אפשר אותה בהגדרות המכשיר כדי לשנות את התמונה."
+    }
   },
   "settings": {
     "title": "הגדרות",

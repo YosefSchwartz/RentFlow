@@ -221,4 +221,13 @@ export class NotificationsService {
       entityId: propertyId,
     });
   }
+
+  async notifyPasswordChanged(userId: string): Promise<Notification> {
+    return this.create({
+      userId,
+      type: NotificationType.PASSWORD_CHANGED,
+      title: 'Password Changed',
+      message: 'Your password was recently changed. If this wasn\'t you, contact support immediately.',
+    });
+  }
 }

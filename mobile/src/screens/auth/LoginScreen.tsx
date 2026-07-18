@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import type { AuthStackParamList } from '../../types';
 import { useAuth } from '../../store/AuthContext';
+import { authApi } from '../../api/auth';
 
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -21,6 +22,7 @@ const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -30,17 +32,34 @@ const LoginScreen: React.FC = () => {
 
     setLoading(true);
     setError(null);
+    setUnverifiedEmail(null);
 
     try {
       await login({ email: email.trim(), password });
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message
-        || err.message
-        || t('auth.errors.loginFailed');
-      setError(errorMessage);
+      if (err.response?.status === 403 && err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail(email.trim());
+      } else {
+        const errorMessage = err.response?.data?.message
+          || err.message
+          || t('auth.errors.loginFailed');
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerifyNow = async () => {
+    if (!unverifiedEmail) return;
+    try {
+      await authApi.resendOtp({ email: unverifiedEmail });
+    } catch {
+      // Resend failure isn't fatal here — VerifyEmailScreen offers its own
+      // resend action if this one silently failed (e.g. still in cooldown
+      // from a prior send).
+    }
+    navigation.navigate('VerifyEmail', { email: unverifiedEmail });
   };
 
   return (
@@ -91,10 +110,30 @@ const LoginScreen: React.FC = () => {
               }
             />
 
+            <Button
+              mode="text"
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotPasswordLink}
+              compact
+            >
+              {t('auth.forgotPassword.link')}
+            </Button>
+
             {error && (
               <Text style={[styles.error, { color: theme.colors.error }]}>
                 {error}
               </Text>
+            )}
+
+            {unverifiedEmail && (
+              <View style={styles.unverifiedBanner}>
+                <Text style={styles.unverifiedText}>
+                  {t('auth.errors.emailNotVerified')}
+                </Text>
+                <Button mode="text" onPress={handleVerifyNow} compact>
+                  {t('auth.verifyEmail.verifyNowCta')}
+                </Button>
+              </View>
             )}
 
             <Button
@@ -155,6 +194,18 @@ const styles = StyleSheet.create({
   error: {
     marginBottom: 16,
     textAlign: 'center',
+  },
+  forgotPasswordLink: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+  },
+  unverifiedBanner: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  unverifiedText: {
+    textAlign: 'center',
+    opacity: 0.8,
   },
   button: {
     marginTop: 8,

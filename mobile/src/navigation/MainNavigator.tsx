@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme, Badge } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import type {
   MainTabParamList,
@@ -37,6 +38,7 @@ import CreateMaintenanceScreen from '../screens/tenant/CreateMaintenanceScreen';
 
 // Shared screens
 import ProfileScreen from '../screens/shared/ProfileScreen';
+import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import MaintenanceDetailScreen from '../screens/shared/MaintenanceDetailScreen';
@@ -198,6 +200,8 @@ const RentalsNavigator: React.FC = () => {
 
 // Profile Stack Navigator
 const ProfileNavigator: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <ProfileStack.Navigator
       screenOptions={{
@@ -209,6 +213,11 @@ const ProfileNavigator: React.FC = () => {
         name="ProfileMain"
         component={ProfileScreen}
         options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: t('profile.editProfile.title') }}
       />
       <ProfileStack.Screen
         name="Settings"

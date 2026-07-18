@@ -5,6 +5,8 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
+  emailVerified: boolean;
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -279,6 +281,7 @@ export interface RegisterRequest {
   password: string;
   firstName: string;
   lastName: string;
+  phone: string;
 }
 
 export interface AuthResponse {
@@ -342,8 +345,11 @@ export type RootStackParamList = {
 };
 
 export type AuthStackParamList = {
-  Login: undefined;
+  Login: { prefillEmail?: string } | undefined;
   Register: undefined;
+  VerifyEmail: { email: string };
+  ForgotPassword: undefined;
+  ResetPassword: { email: string };
 };
 
 // Main app with bottom tabs
@@ -411,6 +417,7 @@ export interface TenantPropertyDetails {
 // Profile stack
 export type ProfileStackParamList = {
   ProfileMain: undefined;
+  EditProfile: undefined;
   Settings: undefined;
   Notifications: undefined;
 };
