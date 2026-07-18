@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Text, TextInput, Button, useTheme } from 'react-native-paper';
+import { Text, TextInput, Button, HelperText, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import type { AuthStackParamList } from '../../types';
 import { useAuth } from '../../store/AuthContext';
+import { validatePassword } from '../../utils/passwordValidation';
 
 type NavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -18,6 +19,7 @@ const RegisterScreen: React.FC = () => {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,8 +29,13 @@ const RegisterScreen: React.FC = () => {
 
   const handleRegister = async () => {
     // Validation
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !email.trim() || !password.trim()) {
       setError(t('auth.errors.fillRequiredFields'));
+      return;
+    }
+
+    if (phone.trim().length < 7) {
+      setError(t('auth.errors.phoneMinLength'));
       return;
     }
 
@@ -37,8 +44,9 @@ const RegisterScreen: React.FC = () => {
       return;
     }
 
-    if (password.length < 8) {
-      setError(t('auth.errors.passwordMinLength'));
+    const passwordErrors = validatePassword(password);
+    if (passwordErrors.length > 0) {
+      setError(t(passwordErrors[0]));
       return;
     }
 
@@ -63,12 +71,20 @@ const RegisterScreen: React.FC = () => {
     setError(null);
 
     try {
-      await register({
+      const trimmedEmail = email.trim().toLowerCase();
+      const result = await register({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        email: trimmedEmail,
         password,
       });
+
+      if (result.requiresVerification) {
+        navigation.navigate('VerifyEmail', { email: result.email });
+      }
+      // else: the (defensive-only) auto-authenticated path — RootNavigator
+      // switches to MainNavigator once AuthContext.user is set.
     } catch (err: any) {
       setError(err.response?.data?.message || t('auth.errors.registerFailed'));
     } finally {
@@ -117,6 +133,16 @@ const RegisterScreen: React.FC = () => {
             </View>
 
             <TextInput
+              label={t('profile.phone')}
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              mode="outlined"
+              style={styles.input}
+              left={<TextInput.Icon icon="phone" />}
+            />
+
+            <TextInput
               label={t('auth.email')}
               value={email}
               onChangeText={setEmail}
@@ -129,12 +155,12 @@ const RegisterScreen: React.FC = () => {
             />
 
             <TextInput
-              label={t('auth.passwordMinLength')}
+              label={t('auth.password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               mode="outlined"
-              style={styles.input}
+              style={styles.passwordInput}
               left={<TextInput.Icon icon="lock" />}
               right={
                 <TextInput.Icon
@@ -143,6 +169,9 @@ const RegisterScreen: React.FC = () => {
                 />
               }
             />
+            <HelperText type="info" style={styles.passwordHint}>
+              {t('auth.passwordPolicyHint')}
+            </HelperText>
 
             <TextInput
               label={t('auth.confirmPassword')}
@@ -216,6 +245,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   input: {
+    marginBottom: 16,
+  },
+  passwordInput: {
+    marginBottom: 0,
+  },
+  passwordHint: {
     marginBottom: 16,
   },
   halfInput: {

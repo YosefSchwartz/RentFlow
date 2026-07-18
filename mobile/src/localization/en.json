@@ -23,6 +23,7 @@
     "copy": "Copy",
     "copied": "Copied to clipboard!",
     "notAvailable": "N/A",
+    "discard": "Discard",
     "viewDetails": "View Details",
     "goBack": "Go Back",
     "later": "Later",
@@ -44,6 +45,31 @@
     "noAccount": "Don't have an account? Register",
     "hasAccount": "Already have an account? Login",
     "passwordMinLength": "Password (min 8 characters)",
+    "passwordPolicyHint": "At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a special character",
+    "forgotPassword": {
+      "title": "Forgot Password?",
+      "subtitle": "Enter your email and we'll send you a reset code",
+      "sendButton": "Send Reset Code",
+      "link": "Forgot password?",
+      "checkEmail": "If an account exists for this email, a reset code has been sent"
+    },
+    "resetPassword": {
+      "title": "Reset Password",
+      "newPassword": "New Password",
+      "confirmNewPassword": "Confirm New Password",
+      "saveButton": "Reset Password"
+    },
+    "verifyEmail": {
+      "title": "Verify Your Email",
+      "subtitle": "Enter the 6-digit code we sent to {{email}}",
+      "verifyButton": "Verify",
+      "resendButton": "Resend Code",
+      "resendCooldown": "Resend in {{seconds}}s",
+      "resendSuccess": "A new code has been sent",
+      "resendError": "Could not resend the code. Please try again.",
+      "verifyNowCta": "Verify now",
+      "invalidCode": "Please enter the 6-digit code"
+    },
     "errors": {
       "fillAllFields": "Please fill in all fields",
       "fillRequiredFields": "Please fill in all required fields",
@@ -52,8 +78,14 @@
       "passwordMaxLength": "Password must be at most 50 characters",
       "invalidEmail": "Please enter a valid email address",
       "nameMaxLength": "First and last name must be at most 50 characters each",
+      "phoneMinLength": "Please enter a valid phone number",
       "loginFailed": "Login failed. Please try again.",
-      "registerFailed": "Registration failed. Please try again."
+      "registerFailed": "Registration failed. Please try again.",
+      "emailNotVerified": "Your email isn't verified yet.",
+      "passwordNeedsLower": "Password must include a lowercase letter",
+      "passwordNeedsUpper": "Password must include an uppercase letter",
+      "passwordNeedsDigit": "Password must include a number",
+      "passwordNeedsSpecial": "Password must include a special character"
     }
   },
   "navigation": {
@@ -403,7 +435,20 @@
     "ownedProperties": "Owned Properties",
     "activeLeases": "Active Leases",
     "switchExperience": "Switch Experience",
-    "appVersion": "RentFlow v{{version}}"
+    "appVersion": "RentFlow v{{version}}",
+    "editProfile": {
+      "title": "Edit Profile",
+      "saveButton": "Save",
+      "saveSuccess": "Profile updated",
+      "saveError": "Could not update your profile. Please try again.",
+      "unsavedChangesTitle": "Discard changes?",
+      "unsavedChangesMessage": "You have unsaved changes. Are you sure you want to leave?",
+      "changePhoto": "Change Photo",
+      "takePhoto": "Take Photo",
+      "chooseFromLibrary": "Choose from Library",
+      "avatarUploadError": "Could not upload your photo. Please try again.",
+      "avatarPermissionDenied": "Camera/photo library permission was denied. Enable it in your device settings to change your photo."
+    }
   },
   "settings": {
     "title": "Settings",

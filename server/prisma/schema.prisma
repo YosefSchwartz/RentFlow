@@ -70,6 +70,15 @@ enum NotificationType {
   MAINTENANCE_COMMENT
   DOCUMENT_UPLOADED
   DOCUMENT_REQUESTED
+  PASSWORD_CHANGED
+}
+
+// Purposes an OtpCode can be issued for. EMAIL_CHANGE is infrastructure-only
+// for now (no endpoint uses it yet) — see User.pendingEmail.
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  EMAIL_CHANGE
 }
 
 model User {
@@ -80,6 +89,30 @@ model User {
   lastName  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Email verification (OTP-based). Existing rows are backfilled to true by
+  // the migration that introduces this column; only new registrations go
+  // through the OTP flow.
+  emailVerified     Boolean   @default(false)
+  emailVerifiedAt   DateTime?
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  phone             String?
+
+  // Infrastructure for a future change-email feature (not implemented yet —
+  // no endpoint sets these). Mirrors the Lease.activationCode/-ExpiresAt
+  // pairing style already used elsewhere in this schema.
+  pendingEmail           String?
+  pendingEmailExpiresAt  DateTime?
+
+  // Avatar, via the shared StoredFile pipeline (mirrors PropertyMedia.storedFileId
+  // — unique FK, RESTRICT so a file can't be deleted while still referenced as
+  // someone's avatar). Only the FK is ever persisted; the signed download URL
+  // is generated fresh on every read (see ProfileService.getProfile).
+  avatarStoredFileId String?     @unique
+  avatarStoredFile   StoredFile? @relation("UserAvatar", fields: [avatarStoredFileId], references: [id], onDelete: Restrict)
+
+  otpCodes OtpCode[]
 
   // Relations
   ownedProperties      Property[]
@@ -94,9 +127,31 @@ model User {
   // Media uploads (separate domains: property gallery vs. maintenance evidence)
   uploadedPropertyMedia          PropertyMedia[]
   uploadedMaintenanceAttachments MaintenanceAttachment[]
-  uploadedStoredFiles            StoredFile[]
+  uploadedStoredFiles            StoredFile[] @relation("UploadedFiles")
 
   @@index([email])
+}
+
+// Single-use, short-lived OTP codes for email verification / password reset
+// (and, in the future, email change — see OtpPurpose.EMAIL_CHANGE). One
+// polymorphic table keyed by `purpose`, mirroring the Notification.type /
+// Document.category precedent elsewhere in this schema, rather than a
+// separate table per purpose.
+model OtpCode {
+  id         String     @id @default(cuid())
+  purpose    OtpPurpose
+  codeHash   String // HMAC-SHA256(OTP_SECRET, code) — not bcrypt; see OtpService
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int        @default(0)
+  createdAt  DateTime   @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@index([userId, purpose, createdAt])
 }
 
 model Session {
@@ -343,12 +398,13 @@ model StoredFile {
   updatedAt        DateTime @updatedAt
 
   uploadedById String?
-  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  uploadedBy   User?   @relation("UploadedFiles", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   // Navigation-only inverse relations (Prisma requirement); no business logic.
   document              Document?
   propertyMedia         PropertyMedia?
   maintenanceAttachment MaintenanceAttachment?
+  avatarOfUser          User?          @relation("UserAvatar")
 
   @@index([uploadedById])
 }

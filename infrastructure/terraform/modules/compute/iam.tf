@@ -115,6 +115,28 @@ resource "aws_iam_role_policy" "task_s3" {
   policy = data.aws_iam_policy_document.task_s3[0].json
 }
 
+# The app sends OTP emails (verification, password reset) via SES, scoped to
+# exactly the one verified sender identity — no wildcards, same shape as
+# task_s3 above.
+data "aws_iam_policy_document" "task_ses" {
+  count = var.ses_identity_arn == null ? 0 : 1
+
+  statement {
+    sid       = "AppSendEmail"
+    effect    = "Allow"
+    actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+    resources = [var.ses_identity_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "task_ses" {
+  count = var.ses_identity_arn == null ? 0 : 1
+
+  name   = "${var.name_prefix}-ecs-task-ses"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_ses[0].json
+}
+
 # ECS Exec: the SSM agent inside the task opens SSM Messages control/data
 # channels using the TASK role's identity, so these actions belong on the task
 # role (NOT the execution role). ssmmessages has no resource-level permissions,

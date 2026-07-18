@@ -46,6 +46,14 @@ export class UsersService {
         lastName: true,
         createdAt: true,
         updatedAt: true,
+        emailVerified: true,
+        emailVerifiedAt: true,
+        lastLoginAt: true,
+        passwordChangedAt: true,
+        phone: true,
+        pendingEmail: true,
+        pendingEmailExpiresAt: true,
+        avatarStoredFileId: true,
       },
     });
     return users;

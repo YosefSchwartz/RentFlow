@@ -3,6 +3,9 @@ export interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
+  emailVerified: boolean;
+  phone: string | null;
+  avatarUrl: string | null;
 }
 
 export interface AuthResponse {
@@ -14,4 +17,10 @@ export interface AuthResponse {
 export interface RefreshResponse {
   accessToken: string;
   refreshToken: string;
+}
+
+/** Returned by register() — no session yet, the account still needs email verification. */
+export interface RegisterResponse {
+  email: string;
+  message: string;
 }
