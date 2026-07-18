@@ -3,8 +3,16 @@
 # ============================================================================
 # Stores RentFlow relational data. Runs in private DB subnets only, no public
 # access, encrypted at rest, TLS enforced, with automated backups and deletion
-# protection. The master password is GENERATED and MANAGED BY RDS in Secrets
-# Manager — it never appears in Terraform variables, state, or the repository.
+# protection.
+#
+# The master password is deliberately self-managed (manage_master_user_password
+# = false), NOT RDS-managed. RDS-managed passwords auto-rotate on a schedule
+# (observed ~7 days), and since the app builds its DATABASE_URL once at
+# container startup, a rotation silently breaks already-running tasks until
+# they're redeployed. The caller (environment root) generates the password
+# with `random_password` and stores it in Secrets Manager itself, mirroring
+# JWT_SECRET/OTP_SECRET — same trade-off already accepted for those, applied
+# consistently here. Passed in via var.master_password (sensitive).
 # ----------------------------------------------------------------------------
 
 locals {
@@ -51,12 +59,15 @@ resource "aws_db_instance" "this" {
   storage_encrypted     = true
   kms_key_id            = var.kms_key_arn # null = AWS-managed key
 
-  # --- Database + credentials (RDS-managed secret; no password in state) ---
-  db_name                       = var.database_name
-  username                      = var.master_username
-  manage_master_user_password   = false
-  master_user_secret_kms_key_id = var.kms_key_arn
-  port                          = local.port
+  # --- Database + credentials (self-managed; see header comment) ---
+  # manage_master_user_password is deliberately OMITTED, not set to false —
+  # the AWS provider treats "password" and "manage_master_user_password" as
+  # ConflictsWith at the configuration level (present vs. absent), not just by
+  # value, so writing `= false` alongside `password` fails validation.
+  db_name  = var.database_name
+  username = var.master_username
+  password = var.master_password
+  port     = local.port
 
   # --- Networking: private only ---
   db_subnet_group_name   = aws_db_subnet_group.this.name

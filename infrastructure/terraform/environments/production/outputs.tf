@@ -111,8 +111,8 @@ output "db_name" {
 }
 
 output "db_secret_arn" {
-  description = "Secrets Manager ARN holding DB master credentials (no password exposed here)."
-  value       = module.database.secret_arn
+  description = "Secrets Manager ARN holding the DB master password (self-managed — no password value exposed here)."
+  value       = aws_secretsmanager_secret.db_master.arn
 }
 
 output "db_security_group_id" {

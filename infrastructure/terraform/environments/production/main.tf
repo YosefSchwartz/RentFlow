@@ -97,11 +97,32 @@ module "database" {
   backup_retention_period      = var.db_backup_retention_days
   performance_insights_enabled = var.db_performance_insights_enabled
 
+  master_password = random_password.db_master.result
+
   # Open PostgreSQL to the backend tasks only (Layer 8).
   allowed_security_group_ids = [module.compute.ecs_security_group_id]
 }
 
 # --- Application secrets (backend runtime) ---
+# Database master user password. Self-managed (NOT RDS-managed rotation — see
+# modules/database/main.tf header for why) — generated here and stored in
+# Secrets Manager, same pattern as jwt_secret below. (Mirrors staging.)
+resource "random_password" "db_master" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db_master" {
+  name        = "${module.foundation.name_prefix}-db-master-password"
+  description = "RDS master user password (self-managed — no automatic rotation)."
+  tags        = module.foundation.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "db_master" {
+  secret_id     = aws_secretsmanager_secret.db_master.id
+  secret_string = random_password.db_master.result
+}
+
 # JWT signing secret — generated here, stored in Secrets Manager, injected into
 # the ECS task via the `secrets` block. Never committed, never a tfvar, never
 # in the task definition. (Mirrors staging.)
@@ -160,18 +181,18 @@ module "compute" {
     AWS_REGION     = var.aws_region
     S3_BUCKET_NAME = module.storage.bucket_name
 
-    DB_HOST = module.database.db_endpoint
-    DB_PORT = tostring(module.database.db_port)
-    DB_NAME = module.database.db_name
+    DB_HOST     = module.database.db_endpoint
+    DB_PORT     = tostring(module.database.db_port)
+    DB_NAME     = module.database.db_name
+    DB_USERNAME = module.database.master_username
   }
 
   # Resolved by the ECS agent at launch (execution role); never in state/task def.
   container_secrets = {
-    DB_USERNAME = "${module.database.secret_arn}:username::"
-    DB_PASSWORD = "${module.database.secret_arn}:password::"
+    DB_PASSWORD = aws_secretsmanager_secret.db_master.arn
     JWT_SECRET  = aws_secretsmanager_secret.jwt.arn
   }
-  db_secret_arn   = module.database.secret_arn
+  db_secret_arn   = aws_secretsmanager_secret.db_master.arn
   app_secret_arns = [aws_secretsmanager_secret.jwt.arn]
 
   s3_bucket_arn = module.storage.bucket_arn

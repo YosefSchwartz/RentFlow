@@ -1,8 +1,14 @@
-# Database module — outputs. The password is NEVER exposed.
+# Database module — outputs. The password is NEVER exposed (it's an input the
+# caller already holds — see variables.tf — not something this module creates).
 
 output "db_endpoint" {
   description = "Database connection host (address)."
   value       = aws_db_instance.this.address
+}
+
+output "master_username" {
+  description = "Master username (not a secret — the caller needs it to build DATABASE_URL / a plain env var)."
+  value       = aws_db_instance.this.username
 }
 
 output "db_port" {
@@ -18,11 +24,6 @@ output "db_name" {
 output "security_group_id" {
   description = "Database security group ID (reference it from the backend SG's egress / as an ingress source)."
   value       = aws_security_group.db.id
-}
-
-output "secret_arn" {
-  description = "ARN of the RDS-managed Secrets Manager secret holding the master credentials (username + password)."
-  value       = aws_db_instance.this.master_user_secret[0].secret_arn
 }
 
 output "db_instance_identifier" {

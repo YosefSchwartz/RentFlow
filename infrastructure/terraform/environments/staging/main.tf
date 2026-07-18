@@ -115,6 +115,8 @@ module "database" {
   backup_retention_period      = var.db_backup_retention_days
   performance_insights_enabled = var.db_performance_insights_enabled
 
+  master_password = random_password.db_master.result
+
   # Open PostgreSQL to the backend tasks only (Layer 8)...
   allowed_security_group_ids = [module.compute.ecs_security_group_id]
   # ...plus a single developer laptop for DataGrip. NOT 0.0.0.0/0 (the module
@@ -123,6 +125,25 @@ module "database" {
 }
 
 # --- Application secrets (backend runtime) ---
+# Database master user password. Self-managed (NOT RDS-managed rotation — see
+# modules/database/main.tf header for why) — generated here and stored in
+# Secrets Manager, same pattern as jwt_secret/otp_secret below.
+resource "random_password" "db_master" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "db_master" {
+  name        = "${module.foundation.name_prefix}-db-master-password"
+  description = "RDS master user password (self-managed — no automatic rotation)."
+  tags        = module.foundation.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "db_master" {
+  secret_id     = aws_secretsmanager_secret.db_master.id
+  secret_string = random_password.db_master.result
+}
+
 # JWT signing secret for the backend. Generated here (never committed, never
 # passed as a tfvar) and stored in Secrets Manager, then injected into the ECS
 # task via the `secrets` block — the value never appears in the task definition
@@ -223,30 +244,33 @@ module "compute" {
     S3_BUCKET_NAME = module.storage.bucket_name
 
     # Non-secret DB connection parts (used to compose DATABASE_URL below).
-    DB_HOST = module.database.db_endpoint
-    DB_PORT = tostring(module.database.db_port)
-    DB_NAME = module.database.db_name
+    # Username isn't a secret (it's a known, non-sensitive value) — only the
+    # password needs Secrets Manager.
+    DB_HOST     = module.database.db_endpoint
+    DB_PORT     = tostring(module.database.db_port)
+    DB_NAME     = module.database.db_name
+    DB_USERNAME = module.database.master_username
 
     # OTP email delivery. Sender address and region aren't secrets. Start on
     # "console" (logs instead of sending) until the SES identity's
     # confirmation link has been clicked (see modules/notifications/README.md),
     # then flip to "ses" in a follow-up deploy.
-    EMAIL_PROVIDER   = "console"
+    EMAIL_PROVIDER   = "ses"
     SES_SENDER_EMAIL = module.notifications.sender_email
   }
 
   # Secrets are resolved by the ECS agent at launch (execution role) and never
   # appear in the task definition or state:
-  #   * DB credentials  — RDS-managed secret (JSON: username / password keys).
+  #   * DB_PASSWORD     — our generated Secrets Manager secret (plain string;
+  #                       self-managed, not RDS-managed — see modules/database).
   #   * JWT_SECRET      — our generated Secrets Manager secret (plain string).
   #   * OTP_SECRET      — our generated Secrets Manager secret (plain string).
   container_secrets = {
-    DB_USERNAME = "${module.database.secret_arn}:username::"
-    DB_PASSWORD = "${module.database.secret_arn}:password::"
+    DB_PASSWORD = aws_secretsmanager_secret.db_master.arn
     JWT_SECRET  = aws_secretsmanager_secret.jwt.arn
     OTP_SECRET  = aws_secretsmanager_secret.otp.arn
   }
-  db_secret_arn   = module.database.secret_arn
+  db_secret_arn   = aws_secretsmanager_secret.db_master.arn
   app_secret_arns = [aws_secretsmanager_secret.jwt.arn, aws_secretsmanager_secret.otp.arn]
 
   # Least-privilege S3 access for the task role (documents / media / attachments).
