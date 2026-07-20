@@ -19,3 +19,12 @@ variable "ses_sender_email" {
   description = "Single verified SES sender identity email address."
   type        = string
 }
+
+# Where bounce/complaint SNS notifications land. Defaults to ses_sender_email
+# so there's always somewhere they go without a second address to configure;
+# override once a real ops inbox exists.
+variable "bounce_complaint_notification_email" {
+  description = "Email address to receive SES bounce/complaint SNS notifications. Defaults to ses_sender_email."
+  type        = string
+  default     = null
+}

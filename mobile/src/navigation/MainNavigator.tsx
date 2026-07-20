@@ -42,6 +42,7 @@ import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import MaintenanceDetailScreen from '../screens/shared/MaintenanceDetailScreen';
+import PropertyMapScreen from '../screens/shared/PropertyMapScreen';
 
 // Profile tab icon with notification badge
 const ProfileTabIcon: React.FC<{ color: string; size: number }> = ({ color, size }) => {
@@ -136,6 +137,11 @@ const PropertiesNavigator: React.FC = () => {
         component={MaintenanceDetailScreen}
         options={{ title: 'Maintenance' }}
       />
+      <PropertiesStack.Screen
+        name="PropertyMap"
+        component={PropertyMapScreen}
+        options={({ route }) => ({ title: route.params.address })}
+      />
     </PropertiesStack.Navigator>
   );
 };
@@ -193,6 +199,11 @@ const RentalsNavigator: React.FC = () => {
         name="MaintenanceDetail"
         component={MaintenanceDetailScreen}
         options={{ title: 'Maintenance' }}
+      />
+      <RentalsStack.Screen
+        name="PropertyMap"
+        component={PropertyMapScreen}
+        options={({ route }) => ({ title: route.params.address })}
       />
     </RentalsStack.Navigator>
   );

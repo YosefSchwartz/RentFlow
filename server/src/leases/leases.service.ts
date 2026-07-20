@@ -19,6 +19,8 @@ const PROPERTY_SELECT = {
   title: true,
   address: true,
   city: true,
+  latitude: true,
+  longitude: true,
   squareMeters: true,
   rooms: true,
   floor: true,

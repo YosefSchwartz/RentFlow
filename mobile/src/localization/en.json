@@ -484,7 +484,11 @@
     "property": "Property",
     "address": "Address",
     "city": "City",
-    "notes": "Notes"
+    "notes": "Notes",
+    "location": "Location"
+  },
+  "propertyMap": {
+    "openInGoogleMaps": "Open in Google Maps"
   },
   "address": {
     "label": "Address *",

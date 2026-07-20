@@ -484,7 +484,11 @@
     "property": "נכס",
     "address": "כתובת",
     "city": "עיר",
-    "notes": "הערות"
+    "notes": "הערות",
+    "location": "מיקום"
+  },
+  "propertyMap": {
+    "openInGoogleMaps": "פתח בגוגל מפות"
   },
   "address": {
     "label": "כתובת *",

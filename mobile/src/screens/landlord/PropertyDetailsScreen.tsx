@@ -16,6 +16,7 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useProperty } from '../../hooks/useProperties';
 import { usePropertyLeases } from '../../hooks/useLeases';
+import { PropertyLocationMap } from '../../components';
 import type {
   PropertiesStackParamList,
   Lease,
@@ -188,6 +189,30 @@ const PropertyDetailsScreen: React.FC = () => {
               </View>
             </>
           )}
+          {property.latitude != null && property.longitude != null && (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Icon name="map" size={20} color={theme.colors.primary} />
+                <View style={styles.infoText}>
+                  <Text variant="labelMedium" style={styles.infoLabel}>{t('propertyInfo.location')}</Text>
+                </View>
+              </View>
+              <PropertyLocationMap
+                latitude={property.latitude}
+                longitude={property.longitude}
+                height={220}
+                style={styles.map}
+                onPress={() =>
+                  navigation.navigate('PropertyMap', {
+                    latitude: property.latitude!,
+                    longitude: property.longitude!,
+                    address: `${property.address}, ${property.city}`,
+                  })
+                }
+              />
+            </>
+          )}
         </Card.Content>
       </Card>
 
@@ -306,6 +331,10 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 4,
+  },
+  map: {
+    marginTop: 4,
+    marginBottom: 8,
   },
   tenantRow: {
     flexDirection: 'row',

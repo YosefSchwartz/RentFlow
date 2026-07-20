@@ -374,6 +374,7 @@ export type PropertiesStackParamList = {
   LeaseActivationCode: { leaseId: string; code: string };
   CreateLease: { propertyId: string };
   MaintenanceDetail: { requestId: string };
+  PropertyMap: PropertyMapParams;
 };
 
 // Rentals (Tenant) stack
@@ -387,7 +388,16 @@ export type RentalsStackParamList = {
   TenantMaintenance: { propertyId: string; leaseId?: string };
   CreateMaintenanceRequest: { propertyId: string; leaseId?: string };
   MaintenanceDetail: { requestId: string };
+  PropertyMap: PropertyMapParams;
 };
+
+// Params for the shared full-screen map, reached from both the landlord
+// (PropertiesStack) and tenant (RentalsStack) navigators.
+export interface PropertyMapParams {
+  latitude: number;
+  longitude: number;
+  address: string;
+}
 
 // Property owner info (for tenant contact)
 export interface PropertyOwner {

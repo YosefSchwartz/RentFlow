@@ -8,19 +8,23 @@ import {
   Chip,
   Divider,
 } from 'react-native-paper';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLease } from '../../hooks/useLeases';
 import { formatCurrency } from '../../utils';
+import { PropertyLocationMap } from '../../components';
 import type { RentalsStackParamList, LeaseStatus } from '../../types';
 
 type LeaseDetailsRouteProp = RouteProp<RentalsStackParamList, 'LeaseDetails'>;
+type NavigationProp = NativeStackNavigationProp<RentalsStackParamList>;
 
 const LeaseDetailsScreen: React.FC = () => {
   const theme = useTheme();
   const route = useRoute<LeaseDetailsRouteProp>();
+  const navigation = useNavigation<NavigationProp>();
   const { t } = useTranslation();
   const { leaseId } = route.params;
 
@@ -113,6 +117,30 @@ const LeaseDetailsScreen: React.FC = () => {
                 <Text variant="bodyMedium">{lease.property?.city}</Text>
               </View>
             </View>
+            {lease.property?.latitude != null && lease.property?.longitude != null && (
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <Icon name="map" size={20} color={theme.colors.primary} />
+                  <View style={styles.infoText}>
+                    <Text variant="labelMedium" style={styles.infoLabel}>{t('propertyInfo.location')}</Text>
+                  </View>
+                </View>
+                <PropertyLocationMap
+                  latitude={lease.property.latitude}
+                  longitude={lease.property.longitude}
+                  height={220}
+                  style={styles.map}
+                  onPress={() =>
+                    navigation.navigate('PropertyMap', {
+                      latitude: lease.property!.latitude!,
+                      longitude: lease.property!.longitude!,
+                      address: `${lease.property?.address}, ${lease.property?.city}`,
+                    })
+                  }
+                />
+              </>
+            )}
           </Card.Content>
         </Card>
 
@@ -229,6 +257,10 @@ const styles = StyleSheet.create({
   },
   divider: {
     marginVertical: 4,
+  },
+  map: {
+    marginTop: 4,
+    marginBottom: 8,
   },
 });
 
