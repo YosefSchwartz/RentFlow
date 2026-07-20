@@ -322,6 +322,7 @@
     "takePhoto": "Take Photo",
     "recordVideo": "Record Video",
     "chooseFromGallery": "Choose from Gallery",
+    "chooseDocument": "Choose Document",
     "count": "{{count}} / {{max}}",
     "noMediaOwner": "No photos yet. Add photos and videos of this property.",
     "noMediaTenant": "No photos have been added for this property yet.",
@@ -392,6 +393,12 @@
       "updateStatus": "Update status",
       "sendFailed": "Failed to send message",
       "statusUpdated": "Status updated"
+    },
+    "receipts": {
+      "title": "Receipts",
+      "add": "Add Receipt",
+      "badge": "Receipt",
+      "empty": "No receipts uploaded yet."
     }
   },
   "leaseCode": {

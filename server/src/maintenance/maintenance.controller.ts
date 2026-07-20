@@ -18,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MaintenanceService } from './maintenance.service';
 import { MaintenanceAttachmentsService } from './maintenance-attachments.service';
+import { DocumentsService } from '../documents/documents.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { UpdateMaintenanceRequestDto } from './dto/update-maintenance-request.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -25,7 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   MAX_VIDEO_SIZE,
-  MEDIA_MIME_TYPE_REGEX,
+  ATTACHMENT_MIME_TYPE_REGEX,
 } from '../media/media-validation';
 
 @Controller()
@@ -34,6 +35,7 @@ export class MaintenanceController {
   constructor(
     private readonly maintenanceService: MaintenanceService,
     private readonly attachmentsService: MaintenanceAttachmentsService,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   @Post('properties/:propertyId/requests')
@@ -100,7 +102,7 @@ export class MaintenanceController {
         validators: [
           // Coarse guard; per-type limits enforced in the service.
           new MaxFileSizeValidator({ maxSize: MAX_VIDEO_SIZE }),
-          new FileTypeValidator({ fileType: MEDIA_MIME_TYPE_REGEX }),
+          new FileTypeValidator({ fileType: ATTACHMENT_MIME_TYPE_REGEX }),
         ],
       }),
     )
@@ -117,6 +119,39 @@ export class MaintenanceController {
     @CurrentUser('id') userId: string,
   ) {
     return this.attachmentsService.delete(attachmentId, userId);
+  }
+
+  // ============================================
+  // Receipts (financial documents, RESOLVED requests only)
+  // ============================================
+
+  @Get('requests/:id/receipts')
+  findReceipts(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.documentsService.findReceiptsForMaintenanceRequest(id, userId);
+  }
+
+  @Post('requests/:id/receipts/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadReceipt(
+    @Param('id') id: string,
+    @Body('name') name: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_VIDEO_SIZE }),
+          new FileTypeValidator({ fileType: ATTACHMENT_MIME_TYPE_REGEX }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.documentsService.uploadMaintenanceReceipt(
+      id,
+      file,
+      name || file.originalname,
+      userId,
+    );
   }
 
   @Get('requests/:id')

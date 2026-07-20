@@ -23,6 +23,7 @@ env:
   ECS_SERVICE: rentflow-staging-app
   ECS_TASK_FAMILY: rentflow-staging-app
   CONTAINER_NAME: app
+  LOG_GROUP: /rentflow-staging/ecs/app
 
 concurrency:
   group: backend-deploy-staging
@@ -71,7 +72,63 @@ jobs:
           container-name: ${{ env.CONTAINER_NAME }}
           image: ${{ env.IMAGE }}
 
+      # Applies pending Prisma migrations against staging BEFORE the new
+      # image is rolled out, so a deploy never ships code against an
+      # unmigrated schema (see server/prisma/migrations — `prisma migrate
+      # deploy` does not need the shadow DB that `migrate dev` requires).
+      # Runs as a one-off task on the new image, in the same private
+      # subnets/security group as the real service, reusing the same
+      # DATABASE_URL composition as its normal container_command (Terraform,
+      # infrastructure/terraform/environments/staging/main.tf) but replacing
+      # `node dist/src/main.js` with `npx prisma migrate deploy`. The rest of
+      # the job only proceeds if this step exits 0.
+      - name: Run database migrations
+        env:
+          TASK_DEFINITION_JSON: ${{ steps.taskdef.outputs.task-definition }}
+        run: |
+          set -euo pipefail
+
+          # Register the new-image task definition as a revision so it can be
+          # run directly (RunTask needs a registered task-definition ARN).
+          MIGRATION_TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json "file://$TASK_DEFINITION_JSON" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          # Reuse the live service's network configuration so this task can
+          # reach RDS exactly like the real service does — never hardcoded.
+          NETWORK_CONFIG=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].networkConfiguration')
+
+          MIGRATE_COMMAND='export DATABASE_URL="postgresql://$DB_USERNAME:$(node -e '\''process.stdout.write(encodeURIComponent(process.env.DB_PASSWORD))'\'')@$DB_HOST:$DB_PORT/$DB_NAME?schema=public&sslmode=require"; exec npx prisma migrate deploy'
+
+          OVERRIDES=$(jq -n --arg name "$CONTAINER_NAME" --arg cmd "$MIGRATE_COMMAND" \
+            '{containerOverrides: [{name: $name, command: ["/bin/sh", "-c", $cmd]}]}')
+
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER" \
+            --task-definition "$MIGRATION_TASK_DEF_ARN" \
+            --launch-type FARGATE \
+            --network-configuration "$NETWORK_CONFIG" \
+            --overrides "$OVERRIDES" \
+            --query 'tasks[0].taskArn' --output text)
+
+          echo "Migration task: $TASK_ARN"
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "Migration task failed (exit code $EXIT_CODE). Check CloudWatch Logs group $LOG_GROUP for the failing task's log stream."
+            exit 1
+          fi
+          echo "Migrations applied successfully."
+
       # Registers the new task def, updates the service, and waits for stability.
+      # enableExecuteCommand is a SERVICE-level setting: this action's UpdateService
+      # call resets it to false when the input is omitted, so we must set it here or
+      # every deploy would turn ECS Exec back off (Terraform owns the initial value).
       - name: Deploy to ECS and wait
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -79,3 +136,4 @@ jobs:
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+          enable-execute-command: true

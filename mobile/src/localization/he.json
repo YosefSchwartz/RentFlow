@@ -322,6 +322,7 @@
     "takePhoto": "צלם תמונה",
     "recordVideo": "הקלט סרטון",
     "chooseFromGallery": "בחר מהגלריה",
+    "chooseDocument": "בחר מסמך",
     "count": "{{count}} / {{max}}",
     "noMediaOwner": "אין תמונות עדיין. הוסף תמונות וסרטונים של הנכס.",
     "noMediaTenant": "עדיין לא נוספו תמונות לנכס זה.",
@@ -392,6 +393,12 @@
       "updateStatus": "עדכון סטטוס",
       "sendFailed": "שליחת ההודעה נכשלה",
       "statusUpdated": "הסטטוס עודכן"
+    },
+    "receipts": {
+      "title": "קבלות",
+      "add": "הוסף קבלה",
+      "badge": "קבלה",
+      "empty": "טרם הועלו קבלות."
     }
   },
   "leaseCode": {

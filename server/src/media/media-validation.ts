@@ -34,6 +34,69 @@ export const MEDIA_MIME_TYPE_REGEX =
 /** Images only (no video) — avatars. */
 export const IMAGE_MIME_TYPE_REGEX = /^image\/(jpeg|png|heic|heif)$/;
 
+export const MAX_DOCUMENT_SIZE = 20 * 1024 * 1024; // 20 MB
+
+// Maintenance chat attachments / receipts additionally accept documents
+// (PDFs and common office formats) — separate from ACCEPTED_MEDIA_MIME_TYPES
+// so the property gallery / avatar flows are untouched.
+export const DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+];
+
+export const ACCEPTED_ATTACHMENT_MIME_TYPES = [
+  ...IMAGE_MIME_TYPES,
+  ...VIDEO_MIME_TYPES,
+  ...DOCUMENT_MIME_TYPES,
+];
+
+/** Coarse FileTypeValidator guard for maintenance attachments/receipts (images, video, documents). */
+export const ATTACHMENT_MIME_TYPE_REGEX =
+  /^(image\/(jpeg|png|heic|heif)|video\/(mp4|quicktime)|application\/(pdf|msword|vnd\.ms-excel|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet))|text\/csv)$/;
+
+/** Resolve the domain media type from a MIME type, including documents, or null if unsupported. */
+export function resolveAttachmentType(mimeType: string): MediaType | null {
+  const mediaType = resolveMediaType(mimeType);
+  if (mediaType) return mediaType;
+  if (DOCUMENT_MIME_TYPES.includes(mimeType)) return MediaType.DOCUMENT;
+  return null;
+}
+
+/**
+ * Validate a maintenance attachment/receipt file's MIME type and size.
+ * Images/videos use the same limits as validateMediaFile; documents get
+ * their own cap. Throws BadRequestException on failure.
+ */
+export function validateAttachmentFile(mimeType: string, size: number): MediaType {
+  const type = resolveAttachmentType(mimeType);
+
+  if (!type) {
+    throw new BadRequestException(
+      `Unsupported file type "${mimeType}". Allowed: jpg, jpeg, png, heic, mp4, mov, pdf, doc(x), xls(x).`,
+    );
+  }
+
+  const maxSize =
+    type === MediaType.IMAGE
+      ? MAX_IMAGE_SIZE
+      : type === MediaType.VIDEO
+        ? MAX_VIDEO_SIZE
+        : MAX_DOCUMENT_SIZE;
+
+  if (size > maxSize) {
+    const maxMb = Math.round(maxSize / (1024 * 1024));
+    throw new BadRequestException(
+      `File exceeds the maximum size of ${maxMb} MB.`,
+    );
+  }
+
+  return type;
+}
+
 /** Resolve the domain media type from a MIME type, or null if unsupported. */
 export function resolveMediaType(mimeType: string): MediaType | null {
   if (IMAGE_MIME_TYPES.includes(mimeType)) return MediaType.IMAGE;

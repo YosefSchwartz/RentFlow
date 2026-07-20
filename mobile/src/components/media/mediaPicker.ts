@@ -1,5 +1,17 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import type { LocalMediaFile, MediaType } from '../../types';
+
+// Non-image/video files accepted for maintenance chat attachments and
+// receipts (mirrors the backend's DOCUMENT_MIME_TYPES).
+const DOCUMENT_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+];
 
 /**
  * Shared media-picking helper used by BOTH the property gallery and the
@@ -106,4 +118,30 @@ export async function pickFromLibrary(
     quality: 0.8,
   });
   return mapResult(result);
+}
+
+/** Pick a single non-image/video document (PDF, Word, Excel, CSV). */
+export async function pickDocument(): Promise<PickResult> {
+  const result = await DocumentPicker.getDocumentAsync({
+    type: DOCUMENT_MIME_TYPES,
+    copyToCacheDirectory: true,
+  });
+
+  if (result.canceled || !result.assets || result.assets.length === 0) {
+    return CANCELED;
+  }
+
+  const asset = result.assets[0];
+  return {
+    canceled: false,
+    denied: false,
+    files: [
+      {
+        uri: asset.uri,
+        name: asset.name,
+        type: asset.mimeType || 'application/octet-stream',
+        mediaType: 'DOCUMENT',
+      },
+    ],
+  };
 }

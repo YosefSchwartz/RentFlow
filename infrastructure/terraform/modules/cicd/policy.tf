@@ -52,6 +52,26 @@ data "aws_iam_policy_document" "deploy" {
     resources = [var.ecs_service_arn]
   }
 
+  # Run the pre-deploy migration task (prisma migrate deploy) and poll it to
+  # completion. No resource-level ARN scoping for RunTask/DescribeTasks
+  # pre-invocation, so this is scoped via the ecs:cluster condition instead —
+  # restricted to the backend cluster only.
+  statement {
+    sid    = "EcsRunMigrationTask"
+    effect = "Allow"
+    actions = [
+      "ecs:RunTask",
+      "ecs:DescribeTasks",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values   = [var.ecs_cluster_arn]
+    }
+  }
+
   # Allow passing ONLY the ECS execution + task roles to ECS (needed by
   # RegisterTaskDefinition), and only to the ECS tasks service.
   statement {

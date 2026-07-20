@@ -48,6 +48,11 @@ variable "ecs_service_arn" {
   type        = string
 }
 
+variable "ecs_cluster_arn" {
+  description = "ECS cluster ARN (from compute) — scopes the pre-deploy migration RunTask/DescribeTasks."
+  type        = string
+}
+
 variable "ecs_execution_role_arn" {
   description = "ECS execution role ARN (from compute) — iam:PassRole scope."
   type        = string

@@ -4,9 +4,10 @@ import { MaintenanceService } from './maintenance.service';
 import { MaintenanceAttachmentsService } from './maintenance-attachments.service';
 import { PropertiesModule } from '../properties/properties.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { DocumentsModule } from '../documents/documents.module';
 
 @Module({
-  imports: [PropertiesModule, NotificationsModule],
+  imports: [PropertiesModule, NotificationsModule, DocumentsModule],
   controllers: [MaintenanceController],
   providers: [MaintenanceService, MaintenanceAttachmentsService],
   exports: [MaintenanceService],

@@ -9,7 +9,7 @@ import { MaintenanceAttachment, StoredFile, MediaType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 import { StoredFileService } from '../media/stored-file.service';
-import { validateMediaFile } from '../media/media-validation';
+import { validateAttachmentFile } from '../media/media-validation';
 
 // Maximum attachments allowed per maintenance request.
 const MAX_ATTACHMENTS_PER_REQUEST = 20;
@@ -76,8 +76,10 @@ export class MaintenanceAttachmentsService {
   }
 
   /**
-   * List attachments for a request. Anyone with property access (owner or
-   * tenant) may view.
+   * List request-level (general evidence) attachments — i.e. those NOT tied
+   * to a specific chat message. Per-message attachments are fetched inline
+   * with their comment instead (see MaintenanceService.findComments).
+   * Anyone with property access (owner or tenant) may view.
    */
   async findAllForRequest(
     requestId: string,
@@ -96,7 +98,7 @@ export class MaintenanceAttachmentsService {
     }
 
     const attachments = await this.prisma.maintenanceAttachment.findMany({
-      where: { maintenanceRequestId: requestId },
+      where: { maintenanceRequestId: requestId, commentId: null },
       include: { storedFile: true },
       orderBy: { createdAt: 'asc' },
     });
@@ -125,8 +127,8 @@ export class MaintenanceAttachmentsService {
       );
     }
 
-    // Validate type + size (image <= 10MB, video <= 50MB).
-    const type = validateMediaFile(file.mimetype, file.size);
+    // Validate type + size (image <= 10MB, video <= 50MB, document <= 20MB).
+    const type = validateAttachmentFile(file.mimetype, file.size);
 
     // Enforce the per-request limit.
     const count = await this.prisma.maintenanceAttachment.count({

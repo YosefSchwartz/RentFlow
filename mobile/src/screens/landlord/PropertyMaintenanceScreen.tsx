@@ -109,6 +109,16 @@ const PropertyMaintenanceScreen: React.FC = () => {
                       {t('maintenance.actions.complete')}
                     </Button>
                   )}
+                  {request.status === 'RESOLVED' && (
+                    <Button
+                      mode="outlined"
+                      compact
+                      icon="restart"
+                      onPress={() => handleStatusChange(request.id, 'IN_PROGRESS')}
+                    >
+                      {t('maintenance.actions.reopen')}
+                    </Button>
+                  )}
                 </View>
               </Card.Content>
             </Card>

@@ -99,6 +99,9 @@ export interface Document {
   id: string;
   propertyId?: string;
   leaseId?: string;
+  // Set when this document is a maintenance receipt (category RECEIPT),
+  // cross-linking it to the request it was uploaded from.
+  maintenanceRequestId?: string | null;
   name: string;
   category: DocumentCategory;
   // A REQUESTED document has no file until the tenant uploads it.
@@ -145,6 +148,7 @@ export type DocumentCategory =
   | PropertyDocumentCategory
   | LeaseDocumentCategory
   | StandardDocumentCategory
+  | 'RECEIPT' // Maintenance financial receipt (server-assigned, not user-selectable)
   | 'CONTRACT'  // Backward compatibility
   | 'OTHER';
 
@@ -216,9 +220,21 @@ export interface MaintenanceRequest {
   updatedAt: string;
 }
 
+// The file attached to one specific chat message (distinct from the
+// request-level MaintenanceAttachment list, which has commentId = null).
+export interface MaintenanceCommentAttachment {
+  id: string;
+  type: MediaType;
+  url: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface MaintenanceComment {
   id: string;
-  body: string;
+  // Nullable: a message may be attachment-only.
+  body: string | null;
   requestId: string;
   authorId: string;
   author?: {
@@ -227,6 +243,7 @@ export interface MaintenanceComment {
     firstName: string;
     lastName: string;
   };
+  attachment?: MaintenanceCommentAttachment | null;
   createdAt: string;
 }
 
@@ -234,7 +251,7 @@ export type MaintenanceStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 export type MaintenancePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 // Media types (shared shape; two separate domains: property gallery vs. maintenance)
-export type MediaType = 'IMAGE' | 'VIDEO';
+export type MediaType = 'IMAGE' | 'VIDEO' | 'DOCUMENT';
 
 // Property gallery media — photos/videos of the property itself
 export interface PropertyMedia {
@@ -249,10 +266,13 @@ export interface PropertyMedia {
   createdAt: string;
 }
 
-// Evidence files attached to a maintenance request
+// Evidence files attached to a maintenance request. commentId is set when
+// this attachment belongs to a specific chat message rather than being
+// general request-level evidence (the latter is what this list returns).
 export interface MaintenanceAttachment {
   id: string;
   maintenanceRequestId: string;
+  commentId?: string | null;
   url: string;
   fileName: string;
   mimeType: string;
