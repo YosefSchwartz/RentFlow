@@ -20,21 +20,11 @@ This is a monorepo containing two applications plus shared context.
 
 | Path | Description |
 | --- | --- |
-| [`keynest/`](keynest/) | Backend API — NestJS + Prisma + PostgreSQL |
-| [`keynest-mobile/`](keynest-mobile/) | Mobile app — Expo / React Native |
+| [`server/`](server/) | Backend API — NestJS + Prisma + PostgreSQL |
+| [`mobile/`](mobile/) | Mobile app — Expo / React Native |
 | [`CLAUDE.md`](CLAUDE.md) | Project conventions, architecture rules, and development guardrails |
 
-Each application has its own detailed `README.md` ([backend](keynest/README.md), [mobile](keynest-mobile/README.md)).
-
-> **Naming transition (KeyNest → RentFlow).** The product is now **RentFlow**;
-> all branding, documentation, and AWS resource naming use it. The application
-> **directories** (`keynest/`, `keynest-mobile/`) and internal runtime
-> identifiers (database name, Docker container/volume/network names, local S3
-> bucket names, npm package names, mobile bundle id `com.keynest.app`, and the
-> `keynest.app` domain) still use `keynest`. These are technical identifiers,
-> not user-facing branding, and are intentionally left unchanged to avoid
-> breaking local dev, published-app identity, and DNS. Renaming them is tracked
-> as separate follow-up work (see [risks](#naming-follow-ups) below).
+Each application has its own detailed `README.md` ([backend](server/README.md), [mobile](mobile/README.md)).
 
 ---
 
@@ -52,7 +42,7 @@ There is no separate `TenantAssignment` model. Tenant onboarding happens through
 
 ---
 
-## Backend (`keynest/`)
+## Backend (`server/`)
 
 **Stack:** NestJS · TypeScript · Prisma · PostgreSQL
 
@@ -66,7 +56,7 @@ There is no separate `TenantAssignment` model. Tenant onboarding happens through
 ### Getting started
 
 ```bash
-cd keynest
+cd server
 npm install
 cp .env.example .env          # configure DB + storage credentials
 
@@ -83,7 +73,7 @@ Useful scripts: `npm run prisma:studio` (DB GUI), `npm run db:reset` (reset DB),
 
 ---
 
-## Mobile (`keynest-mobile/`)
+## Mobile (`mobile/`)
 
 **Stack:** Expo (SDK 54) · React Native · TypeScript · React Query · Axios · i18next · React Native Paper
 
@@ -95,7 +85,7 @@ Useful scripts: `npm run prisma:studio` (DB GUI), `npm run db:reset` (reset DB),
 ### Getting started
 
 ```bash
-cd keynest-mobile
+cd mobile
 npm install
 cp .env.example .env          # point API_URL at your running backend
 
@@ -123,25 +113,3 @@ Development is local-first. The future deployment target is AWS: ECS Fargate, RD
 Before making changes, read [`CLAUDE.md`](CLAUDE.md). It documents the architecture rules, the feature-completion checklist, and the guardrails every change is expected to follow (API contract validation, localization, RTL, permissions, notifications, and more).
 
 Guiding principle: **choose the simplest solution that scales reasonably.** Prefer simplicity, maintainability, clear UX, and incremental evolution over rewrites.
-
----
-
-## Naming follow-ups
-
-The KeyNest → RentFlow rebrand renamed all branding, documentation, and AWS
-resource naming. The following **internal `keynest` identifiers** were left
-unchanged on purpose (renaming them risks breaking running systems and delivers
-no user-facing value). Tackle them deliberately, each with its own migration:
-
-| Identifier | Where | Why deferred |
-| --- | --- | --- |
-| Directory names | `keynest/`, `keynest-mobile/` | Renaming touches Docker build contexts, IDE/tooling paths, and every relative link; do as a dedicated move. |
-| Database name / user / password | `docker-compose*.yml`, `.env*` (`keynest` / `keynest_secret`) | Coupled across compose, env, and Prisma; requires recreating local volumes. |
-| Docker resources | container/network names (`keynest-db`, `keynest-network`, …) | Cosmetic; recreate on next `up`. |
-| Local S3 bucket / Secrets names | `keynest-local-documents`, `keynest-legal`, `keynest/local/app-secrets` | Coupled to LocalStack init + code defaults + env; rename all together. |
-| npm package names | `keynest/package.json`, `keynest-mobile/package.json` | Internal; safe but low value. |
-| Mobile bundle id / slug | `com.keynest.app`, slug `keynest` | Changing published-app identity is a store-level decision, not a rename. |
-| App domain | `keynest.app` (mobile links, legal pages) | Depends on a real DNS/domain decision (Route 53/ACM). |
-
-The mobile i18n key `auth.joinKeynest` also retains the old spelling (its
-*value* now reads "RentFlow"); rename the key when convenient.
