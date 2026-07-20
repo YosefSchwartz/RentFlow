@@ -6,6 +6,7 @@ import type {
   CreateMaintenanceRequest,
   MaintenanceStatus,
   LocalMediaFile,
+  Document,
 } from '../types';
 
 export const maintenanceApi = {
@@ -31,14 +32,15 @@ export const maintenanceApi = {
     return response.data;
   },
 
-  // Add a comment to a request
+  // Add a comment to a request — text, an attachment, or both.
   addComment: async (
     requestId: string,
-    body: string
+    body?: string,
+    attachmentId?: string
   ): Promise<MaintenanceComment> => {
     const response = await apiClient.post<MaintenanceComment>(
       `/requests/${requestId}/comments`,
-      { body }
+      { body, attachmentId }
     );
     return response.data;
   },
@@ -125,5 +127,39 @@ export const maintenanceApi = {
   // Delete an attachment (uploader or owner)
   deleteAttachment: async (attachmentId: string): Promise<void> => {
     await apiClient.delete(`/attachments/${attachmentId}`);
+  },
+
+  // Get receipts for a request (participant only; request must be RESOLVED
+  // for uploads, but existing receipts remain visible regardless of status)
+  getReceipts: async (requestId: string): Promise<Document[]> => {
+    const response = await apiClient.get<Document[]>(
+      `/requests/${requestId}/receipts`
+    );
+    return response.data;
+  },
+
+  // Upload a receipt (multipart form data) — only while the request is RESOLVED.
+  uploadReceipt: async (
+    requestId: string,
+    file: LocalMediaFile,
+    name: string
+  ): Promise<Document> => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      name: file.name,
+      type: file.type,
+    } as any);
+    formData.append('name', name);
+
+    const response = await apiClient.post<Document>(
+      `/requests/${requestId}/receipts/upload`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+      }
+    );
+    return response.data;
   },
 };

@@ -300,6 +300,7 @@ module "cicd" {
 
   ecr_repository_arn     = module.container_registry.repository_arn
   ecs_service_arn        = module.compute.ecs_service_arn
+  ecs_cluster_arn        = module.compute.ecs_cluster_arn
   ecs_execution_role_arn = module.compute.execution_role_arn
   ecs_task_role_arn      = module.compute.task_role_arn
 }

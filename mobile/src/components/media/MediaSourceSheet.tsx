@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Text, Button, useTheme, Portal, Modal } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { takePhoto, recordVideo, pickFromLibrary, PickResult } from './mediaPicker';
+import { takePhoto, recordVideo, pickFromLibrary, pickDocument, PickResult } from './mediaPicker';
 
 interface Props {
   visible: boolean;
@@ -11,6 +11,8 @@ interface Props {
   onResult: (result: PickResult) => void;
   /** Allow selecting multiple items from the library. Default true. */
   allowMultiple?: boolean;
+  /** Also offer a "Choose Document" (PDF/Word/Excel/CSV) action. Default false. */
+  allowDocuments?: boolean;
 }
 
 /**
@@ -23,6 +25,7 @@ export const MediaSourceSheet: React.FC<Props> = ({
   onDismiss,
   onResult,
   allowMultiple = true,
+  allowDocuments = false,
 }) => {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -68,6 +71,16 @@ export const MediaSourceSheet: React.FC<Props> = ({
         >
           {t('gallery.chooseFromGallery')}
         </Button>
+        {allowDocuments && (
+          <Button
+            icon="file-document"
+            mode="contained-tonal"
+            style={styles.button}
+            onPress={() => run(pickDocument)}
+          >
+            {t('gallery.chooseDocument')}
+          </Button>
+        )}
         <Button onPress={onDismiss} style={styles.button}>
           {t('common.cancel')}
         </Button>

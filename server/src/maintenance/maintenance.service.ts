@@ -2,18 +2,35 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   MaintenanceRequest,
   MaintenanceComment,
+  MaintenanceAttachment,
+  StoredFile,
   MaintenanceStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StoredFileService } from '../media/stored-file.service';
 import { CreateMaintenanceRequestDto } from './dto/create-maintenance-request.dto';
 import { UpdateMaintenanceRequestDto } from './dto/update-maintenance-request.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
+
+/** A comment as returned by the API — includes its author and linked attachment, if any. */
+export interface MaintenanceCommentResponse extends MaintenanceComment {
+  author: { id: string; email: string; firstName: string; lastName: string };
+  attachment: {
+    id: string;
+    type: string;
+    url: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+  } | null;
+}
 
 // Reusable select for any user shown alongside a request/comment.
 const USER_SELECT = {
@@ -33,7 +50,35 @@ export class MaintenanceService {
     private readonly prisma: PrismaService,
     private readonly propertiesService: PropertiesService,
     private readonly notifications: NotificationsService,
+    private readonly storedFileService: StoredFileService,
   ) {}
+
+  /** Shape a comment's linked attachment (if any) with a signed download URL. */
+  private async toCommentResponse(
+    comment: MaintenanceComment & {
+      author: { id: string; email: string; firstName: string; lastName: string };
+      attachment: (MaintenanceAttachment & { storedFile: StoredFile }) | null;
+    },
+  ): Promise<MaintenanceCommentResponse> {
+    if (!comment.attachment) {
+      return { ...comment, attachment: null };
+    }
+    const { attachment } = comment;
+    const url = await this.storedFileService.getDownloadUrl(
+      attachment.storedFile,
+    );
+    return {
+      ...comment,
+      attachment: {
+        id: attachment.id,
+        type: attachment.type,
+        url,
+        fileName: attachment.storedFile.originalFilename,
+        mimeType: attachment.storedFile.mimeType,
+        size: attachment.storedFile.fileSize,
+      },
+    };
+  }
 
   async create(
     propertyId: string,
@@ -184,6 +229,14 @@ export class MaintenanceService {
       updateData.resolvedAt = new Date();
     }
 
+    // Reopening (RESOLVED -> IN_PROGRESS): clear resolvedAt, it's no longer resolved.
+    if (
+      dto.status === MaintenanceStatus.IN_PROGRESS &&
+      request.status === MaintenanceStatus.RESOLVED
+    ) {
+      updateData.resolvedAt = null;
+    }
+
     const statusChanged = !!dto.status && dto.status !== request.status;
 
     const updated = await this.prisma.maintenanceRequest.update({
@@ -255,7 +308,7 @@ export class MaintenanceService {
   async findComments(
     requestId: string,
     userId: string,
-  ): Promise<MaintenanceComment[]> {
+  ): Promise<MaintenanceCommentResponse[]> {
     const request = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestId },
       select: { propertyId: true },
@@ -275,18 +328,29 @@ export class MaintenanceService {
       );
     }
 
-    return this.prisma.maintenanceComment.findMany({
+    const comments = await this.prisma.maintenanceComment.findMany({
       where: { requestId },
-      include: { author: { select: USER_SELECT } },
+      include: {
+        author: { select: USER_SELECT },
+        attachment: { include: { storedFile: true } },
+      },
       orderBy: { createdAt: 'asc' },
     });
+
+    return Promise.all(comments.map((c) => this.toCommentResponse(c)));
   }
 
   async addComment(
     requestId: string,
     dto: CreateCommentDto,
     userId: string,
-  ): Promise<MaintenanceComment> {
+  ): Promise<MaintenanceCommentResponse> {
+    if (!dto.body && !dto.attachmentId) {
+      throw new BadRequestException(
+        'A message must have text, an attachment, or both',
+      );
+    }
+
     const request = await this.prisma.maintenanceRequest.findUnique({
       where: { id: requestId },
       include: { property: { select: { ownerId: true } } },
@@ -306,9 +370,43 @@ export class MaintenanceService {
       );
     }
 
-    const comment = await this.prisma.maintenanceComment.create({
-      data: { requestId, authorId: userId, body: dto.body },
-      include: { author: { select: USER_SELECT } },
+    if (dto.attachmentId) {
+      const attachment = await this.prisma.maintenanceAttachment.findUnique({
+        where: { id: dto.attachmentId },
+      });
+      if (!attachment || attachment.maintenanceRequestId !== requestId) {
+        throw new NotFoundException('Attachment not found on this request');
+      }
+      if (attachment.commentId) {
+        throw new BadRequestException(
+          'This attachment is already linked to a message',
+        );
+      }
+      const isOwner = request.property.ownerId === userId;
+      if (attachment.uploadedById !== userId && !isOwner) {
+        throw new ForbiddenException(
+          'You do not have permission to use this attachment',
+        );
+      }
+    }
+
+    const comment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.maintenanceComment.create({
+        data: { requestId, authorId: userId, body: dto.body ?? null },
+      });
+      if (dto.attachmentId) {
+        await tx.maintenanceAttachment.update({
+          where: { id: dto.attachmentId },
+          data: { commentId: created.id },
+        });
+      }
+      return tx.maintenanceComment.findUniqueOrThrow({
+        where: { id: created.id },
+        include: {
+          author: { select: USER_SELECT },
+          attachment: { include: { storedFile: true } },
+        },
+      });
     });
 
     // Writing a comment counts as viewing the conversation.
@@ -332,7 +430,7 @@ export class MaintenanceService {
       );
     }
 
-    return comment;
+    return this.toCommentResponse(comment);
   }
 
   // ============================================

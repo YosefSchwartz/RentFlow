@@ -14,6 +14,7 @@ export const maintenanceKeys = {
   detail: (id: string) => ['maintenance', id] as const,
   comments: (id: string) => ['maintenance', id, 'comments'] as const,
   attachments: (id: string) => ['maintenance', id, 'attachments'] as const,
+  receipts: (id: string) => ['maintenance', id, 'receipts'] as const,
   myRequests: ['maintenance', 'my-requests'] as const,
 };
 
@@ -104,14 +105,17 @@ export const useMarkConversationRead = () => {
   });
 };
 
-// Add a comment to a request
+// Add a comment to a request — text, an attachment, or both.
 export const useAddMaintenanceComment = (requestId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (body: string) => maintenanceApi.addComment(requestId, body),
+    mutationFn: ({ body, attachmentId }: { body?: string; attachmentId?: string }) =>
+      maintenanceApi.addComment(requestId, body, attachmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: maintenanceKeys.comments(requestId) });
+      // A newly-linked attachment moves out of the "general evidence" list.
+      queryClient.invalidateQueries({ queryKey: maintenanceKeys.attachments(requestId) });
     },
   });
 };
@@ -155,6 +159,38 @@ export const useDeleteMaintenanceAttachment = () => {
     onSuccess: (_, { requestId }) => {
       queryClient.invalidateQueries({
         queryKey: maintenanceKeys.attachments(requestId),
+      });
+    },
+  });
+};
+
+// Get receipts for a request (only meaningful once RESOLVED, but the query
+// itself works regardless — the mobile UI gates the section by status)
+export const useMaintenanceReceipts = (requestId: string) => {
+  return useQuery({
+    queryKey: maintenanceKeys.receipts(requestId),
+    queryFn: () => maintenanceApi.getReceipts(requestId),
+    enabled: !!requestId,
+  });
+};
+
+// Upload a receipt to a RESOLVED request (landlord or tenant)
+export const useUploadMaintenanceReceipt = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      requestId,
+      file,
+      name,
+    }: {
+      requestId: string;
+      file: LocalMediaFile;
+      name: string;
+    }) => maintenanceApi.uploadReceipt(requestId, file, name),
+    onSuccess: (_, { requestId }) => {
+      queryClient.invalidateQueries({
+        queryKey: maintenanceKeys.receipts(requestId),
       });
     },
   });

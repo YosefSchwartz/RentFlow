@@ -16,6 +16,7 @@ enum MaintenanceStatus {
 enum MediaType {
   IMAGE
   VIDEO
+  DOCUMENT
 }
 
 enum DocumentCategory {
@@ -36,6 +37,8 @@ enum DocumentCategory {
   LEGAL // Municipality / legal documents
   PROPERTY_INFO // General property information
   TENANT_DOCUMENT
+  // Maintenance financial receipts (also linked via Document.maintenanceRequestId)
+  RECEIPT
   // General/Legacy
   CONTRACT // Kept for backward compatibility
   OTHER
@@ -102,8 +105,8 @@ model User {
   // Infrastructure for a future change-email feature (not implemented yet —
   // no endpoint sets these). Mirrors the Lease.activationCode/-ExpiresAt
   // pairing style already used elsewhere in this schema.
-  pendingEmail           String?
-  pendingEmailExpiresAt  DateTime?
+  pendingEmail          String?
+  pendingEmailExpiresAt DateTime?
 
   // Avatar, via the shared StoredFile pipeline (mirrors PropertyMedia.storedFileId
   // — unique FK, RESTRICT so a file can't be deleted while still referenced as
@@ -115,19 +118,19 @@ model User {
   otpCodes OtpCode[]
 
   // Relations
-  ownedProperties      Property[]
-  leases               Lease[]
-  maintenanceRequests  MaintenanceRequest[]
-  maintenanceComments  MaintenanceComment[]
-  maintenanceReads     MaintenanceRead[]
-  uploadedDocuments    Document[]
-  sessions             Session[]
-  notifications        Notification[]
+  ownedProperties     Property[]
+  leases              Lease[]
+  maintenanceRequests MaintenanceRequest[]
+  maintenanceComments MaintenanceComment[]
+  maintenanceReads    MaintenanceRead[]
+  uploadedDocuments   Document[]
+  sessions            Session[]
+  notifications       Notification[]
 
   // Media uploads (separate domains: property gallery vs. maintenance evidence)
   uploadedPropertyMedia          PropertyMedia[]
   uploadedMaintenanceAttachments MaintenanceAttachment[]
-  uploadedStoredFiles            StoredFile[] @relation("UploadedFiles")
+  uploadedStoredFiles            StoredFile[]            @relation("UploadedFiles")
 
   @@index([email])
 }
@@ -155,12 +158,12 @@ model OtpCode {
 }
 
 model Session {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   refreshTokenHash String
   deviceIdentifier String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  lastUsedAt       DateTime  @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  lastUsedAt       DateTime @default(now())
   expiresAt        DateTime
 
   // Relations
@@ -174,7 +177,7 @@ model Session {
 model Property {
   id           String   @id @default(cuid())
   title        String
-  address      String   // Legacy field, kept for backward compatibility
+  address      String // Legacy field, kept for backward compatibility
   city         String
   squareMeters Int
   rooms        Int
@@ -188,12 +191,12 @@ model Property {
   updatedAt    DateTime @updatedAt
 
   // Structured location fields (from Google Places)
-  formattedAddress String?  // Full formatted address from Google
-  street           String?  // Street name
-  streetNumber     String?  // Street number
-  latitude         Float?   // Geographic latitude
-  longitude        Float?   // Geographic longitude
-  placeId          String?  // Google Place ID for reference
+  formattedAddress String? // Full formatted address from Google
+  street           String? // Street name
+  streetNumber     String? // Street number
+  latitude         Float? // Geographic latitude
+  longitude        Float? // Geographic longitude
+  placeId          String? // Google Place ID for reference
 
   // Owner relation
   ownerId String
@@ -242,21 +245,28 @@ model Lease {
 }
 
 model Document {
-  id        String           @id @default(cuid())
-  name      String
-  category  DocumentCategory
-  visibility DocumentVisibility @default(PRIVATE)
-  status     DocumentStatus     @default(OPTIONAL)
+  id          String             @id @default(cuid())
+  name        String
+  category    DocumentCategory
+  visibility  DocumentVisibility @default(PRIVATE)
+  status      DocumentStatus     @default(OPTIONAL)
   requestedAt DateTime?
   receivedAt  DateTime?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
-  // Parent relations (exactly one must be set)
+  // Parent relations (exactly one of propertyId/leaseId must be set)
   propertyId String?
   property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   leaseId    String?
   lease      Lease?    @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  // Optional cross-reference for a RECEIPT document (layered on top of the
+  // propertyId/leaseId parent above, not a replacement for it) — lets a
+  // future accounting module query every receipt directly via this FK
+  // without scanning maintenance conversations.
+  maintenanceRequestId String?
+  maintenanceRequest   MaintenanceRequest? @relation(fields: [maintenanceRequestId], references: [id], onDelete: SetNull)
 
   // Uploader relation
   uploadedById String?
@@ -268,6 +278,7 @@ model Document {
 
   @@index([propertyId])
   @@index([leaseId])
+  @@index([maintenanceRequestId])
   @@index([uploadedById])
   @@index([category])
   @@index([status])
@@ -285,12 +296,15 @@ model MaintenanceRequest {
 
   // Relations
   propertyId  String
-  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property    Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   requesterId String
-  requester   User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  requester   User                    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
   comments    MaintenanceComment[]
   attachments MaintenanceAttachment[]
   reads       MaintenanceRead[]
+  // Financial receipts uploaded once this request is RESOLVED — each is a
+  // first-class Document (category RECEIPT), not a maintenance-only record.
+  receipts    Document[]
 
   @@index([propertyId])
   @@index([requesterId])
@@ -314,7 +328,8 @@ model MaintenanceRead {
 
 model MaintenanceComment {
   id        String   @id @default(cuid())
-  body      String
+  // Nullable: a message may be attachment-only (see MaintenanceAttachment.commentId).
+  body      String?
   createdAt DateTime @default(now())
 
   // Relations
@@ -322,6 +337,10 @@ model MaintenanceComment {
   request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   authorId  String
   author    User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // The file attached to this specific message, if any (distinct from the
+  // request-level attachments below, which have commentId = null).
+  attachment MaintenanceAttachment?
 
   @@index([requestId])
   @@index([authorId])
@@ -356,6 +375,12 @@ model MaintenanceAttachment {
 
   maintenanceRequestId String
   maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+
+  // Set when this attachment belongs to a specific chat message rather than
+  // being a general request-level evidence upload (null = the pre-existing
+  // behavior, shown in the request's top-level attachments list).
+  commentId String?             @unique
+  comment   MaintenanceComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
   uploadedById String?
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
@@ -404,7 +429,7 @@ model StoredFile {
   document              Document?
   propertyMedia         PropertyMedia?
   maintenanceAttachment MaintenanceAttachment?
-  avatarOfUser          User?          @relation("UserAvatar")
+  avatarOfUser          User?                  @relation("UserAvatar")
 
   @@index([uploadedById])
 }
@@ -415,8 +440,8 @@ model Notification {
   title      String
   message    String
   isRead     Boolean          @default(false)
-  entityType String?          // e.g., "lease", "property", "maintenance"
-  entityId   String?          // ID of the related entity
+  entityType String? // e.g., "lease", "property", "maintenance"
+  entityId   String? // ID of the related entity
   createdAt  DateTime         @default(now())
 
   // Relations

@@ -10,6 +10,7 @@ import {
   DocumentCategory,
   DocumentStatus,
   DocumentVisibility,
+  MaintenanceStatus,
   StoredFile,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -404,6 +405,96 @@ export class DocumentsService {
     });
 
     return this.toDto(document);
+  }
+
+  // ============================================
+  // Maintenance receipts — a RECEIPT-category Document, cross-linked to a
+  // MaintenanceRequest, so a future accounting module can query every
+  // receipt directly without scanning maintenance conversations.
+  // ============================================
+
+  private async getReceiptEligibleRequestOrThrow(
+    requestId: string,
+    userId: string,
+  ) {
+    const request = await this.prisma.maintenanceRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, propertyId: true, requesterId: true, status: true },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Maintenance request not found');
+    }
+
+    const isOwner = await this.propertiesService.isOwner(
+      request.propertyId,
+      userId,
+    );
+    const isRequester = request.requesterId === userId;
+    if (!isOwner && !isRequester) {
+      throw new ForbiddenException(
+        'You do not have access to this maintenance request',
+      );
+    }
+
+    return request;
+  }
+
+  async uploadMaintenanceReceipt(
+    requestId: string,
+    file: Express.Multer.File,
+    name: string,
+    userId: string,
+  ): Promise<DocumentResponse> {
+    const request = await this.getReceiptEligibleRequestOrThrow(
+      requestId,
+      userId,
+    );
+
+    if (request.status !== MaintenanceStatus.RESOLVED) {
+      throw new BadRequestException(
+        'Receipts can only be uploaded once the maintenance request is completed',
+      );
+    }
+
+    const storedFile = await this.storedFileService.upload({
+      buffer: file.buffer,
+      originalFilename: file.originalname,
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      keyParts: ['maintenance', requestId, 'receipts'],
+      uploadedById: userId,
+    });
+
+    const document = await this.prisma.document.create({
+      data: {
+        name,
+        category: DocumentCategory.RECEIPT,
+        visibility: DocumentVisibility.SHARED,
+        propertyId: request.propertyId,
+        maintenanceRequestId: requestId,
+        uploadedById: userId,
+        storedFileId: storedFile.id,
+      },
+      include: { storedFile: true },
+    });
+
+    return this.toDto(document);
+  }
+
+  async findReceiptsForMaintenanceRequest(
+    requestId: string,
+    userId: string,
+  ): Promise<DocumentResponse[]> {
+    await this.getReceiptEligibleRequestOrThrow(requestId, userId);
+
+    const documents = await this.prisma.document.findMany({
+      where: { maintenanceRequestId: requestId },
+      include: { storedFile: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return documents.map((d) => this.toDto(d));
   }
 
   // ============================================
