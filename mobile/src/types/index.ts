@@ -144,6 +144,34 @@ export interface Document {
   };
 }
 
+// Where a receipt came from (mirrors the backend enum).
+export type ReceiptSource = 'MAINTENANCE' | 'MANUAL_UPLOAD';
+
+// A receipt = a RECEIPT document + its metadata + file facts.
+export interface Receipt {
+  id: string;
+  documentId: string;
+  propertyId?: string | null;
+  name: string;
+  receiptDate?: string | null;
+  taxYear: number;
+  source: ReceiptSource;
+  relatedMaintenanceId?: string | null;
+  relatedLeaseId?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  fileUrl?: string | null;
+  fileSize?: number | null;
+  mimeType?: string | null;
+}
+
+// Dashboard rollup, one entry per tax year.
+export interface ReceiptYearSummary {
+  taxYear: number;
+  count: number;
+  totalStorageBytes: number;
+}
+
 // Property document categories
 export type PropertyDocumentCategory =
   | 'INSURANCE'
@@ -411,6 +439,7 @@ export type PropertiesStackParamList = {
   PropertyLeases: { propertyId: string };
   PropertyPhotos: { propertyId: string };
   PropertyDocuments: { propertyId: string };
+  PropertyReceipts: { propertyId: string };
   PropertyMaintenance: { propertyId: string };
   CreateProperty: undefined;
   EditProperty: { propertyId: string };

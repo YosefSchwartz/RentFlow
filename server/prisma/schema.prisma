@@ -76,6 +76,13 @@ enum DocumentAuditAction {
   DOWNLOAD
 }
 
+// Where a receipt originated. Extensible: future sources (e.g. EMAIL_IMPORT,
+// BANK_FEED) are added as new values without a schema redesign.
+enum ReceiptSource {
+  MAINTENANCE
+  MANUAL_UPLOAD
+}
+
 // Required-document workflow status.
 enum DocumentStatus {
   OPTIONAL // A regular uploaded document (default)
@@ -260,13 +267,15 @@ model Lease {
   activationCodeExpiresAt DateTime?
 
   // Relations
-  propertyId String
-  property   Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   // Nullable: a lease is the landlord's record and may be "Unassigned" until a
   // tenant redeems the activation code.
-  tenantId   String?
-  tenant     User?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  documents  Document[]
+  tenantId       String?
+  tenant         User?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  documents      Document[]
+  // Receipt metadata attributed to this lease (see Receipt).
+  receiptRecords Receipt[]
 
   @@index([propertyId])
   @@index([tenantId])
@@ -312,6 +321,10 @@ model Document {
 
   auditLogs DocumentAuditLog[]
 
+  // 1:1 receipt metadata (only for category RECEIPT documents). Sibling record,
+  // so the Document model itself stays unchanged — see the Receipt model.
+  receipt Receipt?
+
   @@index([propertyId])
   @@index([leaseId])
   @@index([maintenanceRequestId])
@@ -319,6 +332,36 @@ model Document {
   @@index([category])
   @@index([status])
   @@index([folderId])
+}
+
+// Receipt metadata attached 1:1 to a RECEIPT-category Document. The file itself
+// lives on the Document/StoredFile (never duplicated); this row carries the
+// tax/accounting facts. Designed as the seam for a future accounting module:
+// add amount/currency/vat/category columns later without a redesign, and query
+// across properties via Document.propertyId (taxYear/source are indexed).
+model Receipt {
+  id          String        @id @default(cuid())
+  receiptDate DateTime? // As stated on the receipt; null falls back to upload date for taxYear.
+  taxYear     Int // Derived once at creation (receiptDate year, else upload year).
+  source      ReceiptSource
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // The document (and its file) this receipt describes.
+  documentId String   @unique
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  // Optional links to the business entities the expense relates to.
+  relatedMaintenanceId String?
+  relatedMaintenance   MaintenanceRequest? @relation(fields: [relatedMaintenanceId], references: [id], onDelete: SetNull)
+  relatedLeaseId       String?
+  relatedLease         Lease?              @relation(fields: [relatedLeaseId], references: [id], onDelete: SetNull)
+
+  @@index([taxYear])
+  @@index([source])
+  @@index([relatedLeaseId])
+  @@index([relatedMaintenanceId])
 }
 
 // A folder within a property's document tree. Folders nest via `parentId`.
@@ -385,16 +428,18 @@ model MaintenanceRequest {
   updatedAt   DateTime          @updatedAt
 
   // Relations
-  propertyId  String
-  property    Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  requesterId String
-  requester   User                    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
-  comments    MaintenanceComment[]
-  attachments MaintenanceAttachment[]
-  reads       MaintenanceRead[]
+  propertyId     String
+  property       Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  requesterId    String
+  requester      User                    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  comments       MaintenanceComment[]
+  attachments    MaintenanceAttachment[]
+  reads          MaintenanceRead[]
   // Financial receipts uploaded once this request is RESOLVED — each is a
   // first-class Document (category RECEIPT), not a maintenance-only record.
-  receipts    Document[]
+  receipts       Document[]
+  // Receipt metadata attributed to this request (see Receipt).
+  receiptRecords Receipt[]
 
   @@index([propertyId])
   @@index([requesterId])

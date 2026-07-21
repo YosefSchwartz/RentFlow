@@ -331,6 +331,22 @@
       "moveError": "Failed to move documents"
     }
   },
+  "receipts": {
+    "title": "Receipts",
+    "upload": "Upload Receipt",
+    "uploadSuccess": "Receipt uploaded",
+    "uploadError": "Failed to upload receipt",
+    "allYears": "All years",
+    "count": "{{count}} receipts",
+    "empty": "No receipts yet",
+    "exportCsv": "Export CSV",
+    "exportZip": "Export ZIP",
+    "exportError": "Export failed",
+    "source": {
+      "MAINTENANCE": "Maintenance",
+      "MANUAL_UPLOAD": "Manual"
+    }
+  },
   "requiredDocs": {
     "title": "Required Documents",
     "requestButton": "Request Document",

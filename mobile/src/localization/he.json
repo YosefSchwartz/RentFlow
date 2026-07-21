@@ -331,6 +331,22 @@
       "moveError": "העברת המסמכים נכשלה"
     }
   },
+  "receipts": {
+    "title": "קבלות",
+    "upload": "העלאת קבלה",
+    "uploadSuccess": "הקבלה הועלתה",
+    "uploadError": "העלאת הקבלה נכשלה",
+    "allYears": "כל השנים",
+    "count": "{{count}} קבלות",
+    "empty": "אין קבלות עדיין",
+    "exportCsv": "ייצוא CSV",
+    "exportZip": "ייצוא ZIP",
+    "exportError": "הייצוא נכשל",
+    "source": {
+      "MAINTENANCE": "תחזוקה",
+      "MANUAL_UPLOAD": "ידני"
+    }
+  },
   "requiredDocs": {
     "title": "מסמכים נדרשים",
     "requestButton": "בקש מסמך",

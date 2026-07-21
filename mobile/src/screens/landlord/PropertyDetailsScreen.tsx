@@ -151,6 +151,12 @@ const PropertyDetailsScreen: React.FC = () => {
             onPress={() => navigation.navigate('PropertyDocuments', { propertyId })}
           />
           <QuickAction
+            icon="receipt-text"
+            label={t('receipts.title')}
+            color={theme.colors.secondary}
+            onPress={() => navigation.navigate('PropertyReceipts', { propertyId })}
+          />
+          <QuickAction
             icon="wrench"
             label={t('tabs.requests')}
             color={theme.colors.tertiary}

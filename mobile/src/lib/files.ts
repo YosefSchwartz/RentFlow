@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import { getAccessToken } from '../services/auth';
 
 const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
@@ -43,5 +44,41 @@ export async function downloadAndShare(
   await Sharing.shareAsync(uri, {
     mimeType: mimeType || undefined,
     dialogTitle: displayName || undefined,
+  });
+}
+
+/**
+ * Download a file from an authenticated API endpoint (sends the JWT) into the
+ * cache and open the OS share sheet. Used by receipt CSV/ZIP exports, whose
+ * endpoints require auth (unlike signed S3 URLs, which don't).
+ */
+export async function downloadAuthedAndShare(
+  url: string,
+  displayName: string,
+  mimeType?: string,
+): Promise<void> {
+  const dir = FileSystem.cacheDirectory;
+  if (!dir) {
+    throw new Error('File system is not available on this platform');
+  }
+
+  const token = await getAccessToken();
+  const { uri, status } = await FileSystem.downloadAsync(
+    url,
+    `${dir}${sanitize(displayName)}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+  );
+
+  if (status >= 400) {
+    throw new Error(`Export failed (${status})`);
+  }
+
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new Error('Sharing is not available on this device');
+  }
+
+  await Sharing.shareAsync(uri, {
+    mimeType: mimeType || undefined,
+    dialogTitle: displayName,
   });
 }

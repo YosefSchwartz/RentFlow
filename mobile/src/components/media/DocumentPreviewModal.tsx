@@ -13,7 +13,15 @@ import { WebView } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
 import { usePreviewUrl } from '../../hooks/useDocuments';
 import { downloadAndShare } from '../../lib/files';
-import type { Document } from '../../types';
+
+// Minimal shape needed to preview a file. A full `Document` satisfies it; a
+// receipt passes `{ id: documentId, ... }` so preview resolves the document.
+export interface PreviewableDocument {
+  id: string;
+  name: string;
+  mimeType?: string | null;
+  fileUrl?: string | null;
+}
 
 type PreviewKind = 'image' | 'pdf' | 'office' | 'other';
 
@@ -59,7 +67,7 @@ const webviewUri = (url: string, kind: PreviewKind): string => {
 };
 
 interface Props {
-  document: Document | null;
+  document: PreviewableDocument | null;
   visible: boolean;
   onDismiss: () => void;
   onError?: (message: string) => void;

@@ -13,12 +13,14 @@ import {
   DocumentAuditAction,
   MaintenanceStatus,
   Prisma,
+  ReceiptSource,
   StoredFile,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 import { StoredFileService } from '../media/stored-file.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ReceiptsService } from '../receipts/receipts.service';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { GetUploadUrlDto } from './dto/upload-document.dto';
 import { RequestDocumentDto } from './dto/request-document.dto';
@@ -72,6 +74,7 @@ export class DocumentsService {
     private readonly propertiesService: PropertiesService,
     private readonly storedFileService: StoredFileService,
     private readonly notifications: NotificationsService,
+    private readonly receiptsService: ReceiptsService,
   ) {}
 
   /** Assemble the public DTO from a document and its (optional) StoredFile. */
@@ -675,6 +678,14 @@ export class DocumentsService {
       include: { storedFile: true },
     });
 
+    // File the receipt under Receipts/<taxYear> and record its metadata
+    // (source MAINTENANCE, linked back to the request). Same file — no dup.
+    await this.receiptsService.registerReceipt(document, {
+      source: ReceiptSource.MAINTENANCE,
+      actorId: userId,
+      relatedMaintenanceId: requestId,
+    });
+
     this.logAudit(DocumentAuditAction.UPLOAD, {
       documentId: document.id,
       propertyId: request.propertyId,
@@ -682,7 +693,12 @@ export class DocumentsService {
       metadata: { name, category: DocumentCategory.RECEIPT, requestId },
     });
 
-    return this.toDto(document);
+    // Re-read so the response reflects the folder assignment from registerReceipt.
+    const filed = await this.prisma.document.findUniqueOrThrow({
+      where: { id: document.id },
+      include: { storedFile: true },
+    });
+    return this.toDto(filed);
   }
 
   async findReceiptsForMaintenanceRequest(

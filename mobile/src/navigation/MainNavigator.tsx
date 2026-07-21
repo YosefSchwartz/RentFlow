@@ -20,6 +20,7 @@ import PropertyDetailsScreen from '../screens/landlord/PropertyDetailsScreen';
 import PropertyLeasesScreen from '../screens/landlord/PropertyLeasesScreen';
 import PropertyPhotosScreen from '../screens/landlord/PropertyPhotosScreen';
 import PropertyDocumentsScreen from '../screens/landlord/PropertyDocumentsScreen';
+import PropertyReceiptsScreen from '../screens/landlord/PropertyReceiptsScreen';
 import PropertyMaintenanceScreen from '../screens/landlord/PropertyMaintenanceScreen';
 import CreatePropertyScreen from '../screens/landlord/CreatePropertyScreen';
 import EditPropertyScreen from '../screens/landlord/EditPropertyScreen';
@@ -106,6 +107,11 @@ const PropertiesNavigator: React.FC = () => {
         name="PropertyDocuments"
         component={PropertyDocumentsScreen}
         options={{ title: 'Documents' }}
+      />
+      <PropertiesStack.Screen
+        name="PropertyReceipts"
+        component={PropertyReceiptsScreen}
+        options={{ title: 'Receipts' }}
       />
       <PropertiesStack.Screen
         name="PropertyMaintenance"
