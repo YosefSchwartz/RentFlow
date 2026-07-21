@@ -41,6 +41,9 @@ export const useUploadReceipt = () => {
     onSuccess: (_, { propertyId }) => {
       queryClient.invalidateQueries({ queryKey: receiptKeys.summary(propertyId) });
       queryClient.invalidateQueries({ queryKey: ['receipts', 'list', propertyId] });
+      // A new receipt is also a document (filed under Receipts/<year>) — keep
+      // the Documents module in sync.
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
   });
 };
