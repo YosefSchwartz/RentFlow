@@ -149,40 +149,42 @@ const PropertyReceiptsScreen: React.FC = () => {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} />}
       >
-        <View style={styles.actionRow}>
-          <Button
-            mode="contained"
-            icon="upload"
-            onPress={handleUpload}
-            loading={uploadReceipt.isPending}
-            disabled={uploadReceipt.isPending}
-            style={styles.flexButton}
-          >
-            {t('receipts.upload')}
-          </Button>
-        </View>
-
         {hasReceipts && (
-          <View style={styles.exportRow}>
-            <Button
-              mode="outlined"
-              icon="file-delimited"
-              compact
-              onPress={() => handleExport('csv')}
-              disabled={exporting}
-            >
-              {t('receipts.exportCsv')}
-            </Button>
-            <Button
-              mode="outlined"
-              icon="folder-zip"
-              compact
-              onPress={() => handleExport('zip')}
-              disabled={exporting}
-            >
-              {t('receipts.exportZip')}
-            </Button>
-          </View>
+          <>
+            <View style={styles.actionRow}>
+              <Button
+                mode="contained"
+                icon="upload"
+                onPress={handleUpload}
+                loading={uploadReceipt.isPending}
+                disabled={uploadReceipt.isPending}
+                style={styles.flexButton}
+              >
+                {t('receipts.upload')}
+              </Button>
+            </View>
+
+            <View style={styles.exportRow}>
+              <Button
+                mode="outlined"
+                icon="file-delimited"
+                compact
+                onPress={() => handleExport('csv')}
+                disabled={exporting}
+              >
+                {t('receipts.exportCsv')}
+              </Button>
+              <Button
+                mode="outlined"
+                icon="folder-zip"
+                compact
+                onPress={() => handleExport('zip')}
+                disabled={exporting}
+              >
+                {t('receipts.exportZip')}
+              </Button>
+            </View>
+          </>
         )}
 
         {!hasReceipts ? (

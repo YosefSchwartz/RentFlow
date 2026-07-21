@@ -184,6 +184,8 @@ export const useDeleteDocument = () => {
     mutationFn: (documentId: string) => documentsApi.delete(documentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      // A deleted document may be a receipt — keep the Receipt Center in sync.
+      queryClient.invalidateQueries({ queryKey: ['receipts'] });
     },
   });
 };
@@ -205,6 +207,8 @@ export const useBulkDeleteDocuments = () => {
       documentsApi.bulkDelete(ids),
     onSuccess: (_, { propertyId }) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      // Deleted documents may include receipts — refresh the Receipt Center too.
+      queryClient.invalidateQueries({ queryKey: ['receipts'] });
       if (propertyId) {
         queryClient.invalidateQueries({ queryKey: documentKeys.byProperty(propertyId) });
       }
