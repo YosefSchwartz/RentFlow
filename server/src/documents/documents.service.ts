@@ -9,8 +9,10 @@ import {
   Document,
   DocumentCategory,
   DocumentStatus,
-  DocumentVisibility,
+  DocumentPermission,
+  DocumentAuditAction,
   MaintenanceStatus,
+  Prisma,
   StoredFile,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +22,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { GetUploadUrlDto } from './dto/upload-document.dto';
 import { RequestDocumentDto } from './dto/request-document.dto';
+import { BulkDeleteDocumentsDto } from './dto/bulk-delete-documents.dto';
+import { BulkMoveDocumentsDto } from './dto/bulk-move-documents.dto';
 
 // Reusable select for a user shown alongside a document.
 const USER_SELECT = {
@@ -37,9 +41,10 @@ export interface DocumentResponse {
   id: string;
   propertyId: string | null;
   leaseId: string | null;
+  folderId: string | null;
   name: string;
   category: DocumentCategory;
-  visibility: DocumentVisibility;
+  permission: DocumentPermission;
   status: DocumentStatus;
   requestedAt: Date | null;
   receivedAt: Date | null;
@@ -76,9 +81,10 @@ export class DocumentsService {
       id: doc.id,
       propertyId: doc.propertyId,
       leaseId: doc.leaseId,
+      folderId: doc.folderId,
       name: doc.name,
       category: doc.category,
-      visibility: doc.visibility,
+      permission: doc.permission,
       status: doc.status,
       requestedAt: doc.requestedAt,
       receivedAt: doc.receivedAt,
@@ -91,6 +97,42 @@ export class DocumentsService {
     if (doc.lease !== undefined) dto.lease = doc.lease;
     if (doc.uploadedBy !== undefined) dto.uploadedBy = doc.uploadedBy;
     return dto;
+  }
+
+  // ============================================
+  // Audit log
+  // ============================================
+
+  /**
+   * Append an audit-log row. Fire-and-forget: audit failures are logged but
+   * never block or fail the originating request. Extend by adding a
+   * DocumentAuditAction value and calling this from the relevant path.
+   */
+  private logAudit(
+    action: DocumentAuditAction,
+    params: {
+      documentId?: string | null;
+      propertyId?: string | null;
+      actorId?: string | null;
+      metadata?: Prisma.InputJsonValue;
+    },
+  ): void {
+    this.prisma.documentAuditLog
+      .create({
+        data: {
+          action,
+          documentId: params.documentId ?? null,
+          propertyId: params.propertyId ?? null,
+          actorId: params.actorId ?? null,
+          metadata: params.metadata,
+        },
+      })
+      .catch((err) =>
+        this.logger.error(
+          `Failed to write ${action} audit log`,
+          err instanceof Error ? err.stack : String(err),
+        ),
+      );
   }
 
   // ============================================
@@ -109,13 +151,15 @@ export class DocumentsService {
       throw new ForbiddenException('You do not have access to this property');
     }
 
-    // Owners see everything; tenants only see SHARED documents.
+    // Owners see everything; tenants only see documents shared with them.
     const isOwner = await this.propertiesService.isOwner(propertyId, userId);
 
     const documents = await this.prisma.document.findMany({
       where: {
         propertyId,
-        ...(isOwner ? {} : { visibility: DocumentVisibility.SHARED }),
+        ...(isOwner
+          ? {}
+          : { permission: DocumentPermission.LANDLORD_AND_TENANT }),
       },
       include: { storedFile: true },
       orderBy: { createdAt: 'desc' },
@@ -169,9 +213,11 @@ export class DocumentsService {
     const documents = await this.prisma.document.findMany({
       where: {
         leaseId,
-        // Owners see everything; tenants only see SHARED documents (required
-        // documents are created SHARED, so they remain visible to the tenant).
-        ...(isOwner ? {} : { visibility: DocumentVisibility.SHARED }),
+        // Owners see everything; tenants only see shared documents (required
+        // documents are created shared, so they remain visible to the tenant).
+        ...(isOwner
+          ? {}
+          : { permission: DocumentPermission.LANDLORD_AND_TENANT }),
       },
       include: {
         storedFile: true,
@@ -243,7 +289,11 @@ export class DocumentsService {
   }
 
   private async canModifyDocument(
-    document: { propertyId?: string | null; leaseId?: string | null; lease?: any },
+    document: {
+      propertyId?: string | null;
+      leaseId?: string | null;
+      lease?: any;
+    },
     userId: string,
   ): Promise<boolean> {
     if (document.propertyId) {
@@ -253,6 +303,48 @@ export class DocumentsService {
       return document.lease.property.ownerId === userId;
     }
     return false;
+  }
+
+  /**
+   * Validate a folder exists and belongs to the given property. Folders are a
+   * property-level concept; lease documents are filed under their property's
+   * folders. Passing null/undefined clears the folder (root).
+   */
+  private async assertFolderInProperty(
+    folderId: string | null | undefined,
+    propertyId: string | null,
+  ): Promise<void> {
+    if (!folderId) return;
+    if (!propertyId) {
+      throw new BadRequestException(
+        'Cannot file this document into a folder',
+      );
+    }
+    const folder = await this.prisma.folder.findUnique({
+      where: { id: folderId },
+      select: { propertyId: true },
+    });
+    if (!folder || folder.propertyId !== propertyId) {
+      throw new BadRequestException(
+        'Folder does not belong to this property',
+      );
+    }
+  }
+
+  /** Resolve the property a document is filed under (direct or via its lease). */
+  private async resolvePropertyId(document: {
+    propertyId: string | null;
+    leaseId: string | null;
+  }): Promise<string | null> {
+    if (document.propertyId) return document.propertyId;
+    if (document.leaseId) {
+      const lease = await this.prisma.lease.findUnique({
+        where: { id: document.leaseId },
+        select: { propertyId: true },
+      });
+      return lease?.propertyId ?? null;
+    }
+    return null;
   }
 
   // ============================================
@@ -280,11 +372,52 @@ export class DocumentsService {
       );
     }
 
+    // Moving into a folder: validate it belongs to this document's property.
+    if (dto.folderId !== undefined) {
+      const propertyId = await this.resolvePropertyId(document);
+      await this.assertFolderInProperty(dto.folderId, propertyId);
+    }
+
     const updated = await this.prisma.document.update({
       where: { id },
-      data: dto,
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.category !== undefined ? { category: dto.category } : {}),
+        ...(dto.permission !== undefined
+          ? { permission: dto.permission }
+          : {}),
+        ...(dto.folderId !== undefined ? { folderId: dto.folderId } : {}),
+      },
       include: { storedFile: true },
     });
+
+    const propertyId = await this.resolvePropertyId(updated);
+
+    // Emit a focused audit entry per kind of change.
+    if (dto.name !== undefined && dto.name !== document.name) {
+      this.logAudit(DocumentAuditAction.RENAME, {
+        documentId: id,
+        propertyId,
+        actorId: userId,
+        metadata: { from: document.name, to: dto.name },
+      });
+    }
+    if (dto.permission !== undefined && dto.permission !== document.permission) {
+      this.logAudit(DocumentAuditAction.PERMISSION_CHANGE, {
+        documentId: id,
+        propertyId,
+        actorId: userId,
+        metadata: { from: document.permission, to: dto.permission },
+      });
+    }
+    if (dto.folderId !== undefined && dto.folderId !== document.folderId) {
+      this.logAudit(DocumentAuditAction.MOVE, {
+        documentId: id,
+        propertyId,
+        actorId: userId,
+        metadata: { from: document.folderId, to: dto.folderId },
+      });
+    }
 
     return this.toDto(updated);
   }
@@ -310,16 +443,53 @@ export class DocumentsService {
       );
     }
 
+    const propertyId = await this.resolvePropertyId(document);
     const storedFileId = document.storedFileId;
+    const name = document.name;
+
     await this.prisma.document.delete({ where: { id } });
     if (storedFileId) {
       await this.storedFileService.delete(storedFileId);
     }
+
+    // documentId is intentionally null: the row is gone, but the audit trail
+    // survives via the denormalized propertyId + metadata.
+    this.logAudit(DocumentAuditAction.DELETE, {
+      documentId: null,
+      propertyId,
+      actorId: userId,
+      metadata: { deletedDocumentId: id, name },
+    });
   }
 
   /** Backward-compatible alias: deletes the document and its file. */
   async deleteWithFile(id: string, userId: string): Promise<void> {
     return this.delete(id, userId);
+  }
+
+  // ============================================
+  // Bulk actions (selection mode)
+  // ============================================
+
+  /** Delete multiple documents (and their files). Each is authorized. */
+  async bulkDelete(dto: BulkDeleteDocumentsDto, userId: string): Promise<void> {
+    for (const id of dto.ids) {
+      await this.delete(id, userId);
+    }
+  }
+
+  /** Move multiple documents into a folder (or to the root when null). */
+  async bulkMove(
+    dto: BulkMoveDocumentsDto,
+    userId: string,
+  ): Promise<DocumentResponse[]> {
+    const results: DocumentResponse[] = [];
+    for (const id of dto.ids) {
+      results.push(
+        await this.update(id, { folderId: dto.folderId ?? null }, userId),
+      );
+    }
+    return results;
   }
 
   // ============================================
@@ -332,12 +502,17 @@ export class DocumentsService {
     name: string,
     category: string,
     userId: string,
-    visibility?: DocumentVisibility,
+    permission?: DocumentPermission,
+    folderId?: string,
   ): Promise<DocumentResponse> {
     const isOwner = await this.propertiesService.isOwner(propertyId, userId);
     if (!isOwner) {
-      throw new ForbiddenException('Only the property owner can upload documents');
+      throw new ForbiddenException(
+        'Only the property owner can upload documents',
+      );
     }
+
+    await this.assertFolderInProperty(folderId, propertyId);
 
     const storedFile = await this.storedFileService.upload({
       buffer: file.buffer,
@@ -352,12 +527,20 @@ export class DocumentsService {
       data: {
         name,
         category: category as DocumentCategory,
-        visibility,
+        permission,
+        folderId: folderId ?? null,
         propertyId,
         uploadedById: userId,
         storedFileId: storedFile.id,
       },
       include: { storedFile: true },
+    });
+
+    this.logAudit(DocumentAuditAction.UPLOAD, {
+      documentId: document.id,
+      propertyId,
+      actorId: userId,
+      metadata: { name, category },
     });
 
     return this.toDto(document);
@@ -369,7 +552,8 @@ export class DocumentsService {
     name: string,
     category: string,
     userId: string,
-    visibility?: DocumentVisibility,
+    permission?: DocumentPermission,
+    folderId?: string,
   ): Promise<DocumentResponse> {
     const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
@@ -380,8 +564,12 @@ export class DocumentsService {
       throw new NotFoundException('Lease not found');
     }
     if (lease.property.ownerId !== userId) {
-      throw new ForbiddenException('Only the property owner can upload documents');
+      throw new ForbiddenException(
+        'Only the property owner can upload documents',
+      );
     }
+
+    await this.assertFolderInProperty(folderId, lease.propertyId);
 
     const storedFile = await this.storedFileService.upload({
       buffer: file.buffer,
@@ -396,12 +584,20 @@ export class DocumentsService {
       data: {
         name,
         category: category as DocumentCategory,
-        visibility,
+        permission,
+        folderId: folderId ?? null,
         leaseId,
         uploadedById: userId,
         storedFileId: storedFile.id,
       },
       include: { storedFile: true },
+    });
+
+    this.logAudit(DocumentAuditAction.UPLOAD, {
+      documentId: document.id,
+      propertyId: lease.propertyId,
+      actorId: userId,
+      metadata: { name, category, leaseId },
     });
 
     return this.toDto(document);
@@ -470,13 +666,20 @@ export class DocumentsService {
       data: {
         name,
         category: DocumentCategory.RECEIPT,
-        visibility: DocumentVisibility.SHARED,
+        permission: DocumentPermission.LANDLORD_AND_TENANT,
         propertyId: request.propertyId,
         maintenanceRequestId: requestId,
         uploadedById: userId,
         storedFileId: storedFile.id,
       },
       include: { storedFile: true },
+    });
+
+    this.logAudit(DocumentAuditAction.UPLOAD, {
+      documentId: document.id,
+      propertyId: request.propertyId,
+      actorId: userId,
+      metadata: { name, category: DocumentCategory.RECEIPT, requestId },
     });
 
     return this.toDto(document);
@@ -508,8 +711,12 @@ export class DocumentsService {
   ): Promise<{ uploadUrl: string; document: DocumentResponse }> {
     const isOwner = await this.propertiesService.isOwner(propertyId, userId);
     if (!isOwner) {
-      throw new ForbiddenException('Only the property owner can upload documents');
+      throw new ForbiddenException(
+        'Only the property owner can upload documents',
+      );
     }
+
+    await this.assertFolderInProperty(dto.folderId, propertyId);
 
     const { storedFile, uploadUrl } =
       await this.storedFileService.createForPresignedUpload({
@@ -524,12 +731,20 @@ export class DocumentsService {
       data: {
         name: dto.name,
         category: dto.category,
-        visibility: dto.visibility,
+        permission: dto.permission,
+        folderId: dto.folderId ?? null,
         propertyId,
         uploadedById: userId,
         storedFileId: storedFile.id,
       },
       include: { storedFile: true },
+    });
+
+    this.logAudit(DocumentAuditAction.UPLOAD, {
+      documentId: document.id,
+      propertyId,
+      actorId: userId,
+      metadata: { name: dto.name, category: dto.category },
     });
 
     return { uploadUrl, document: this.toDto(document) };
@@ -554,6 +769,8 @@ export class DocumentsService {
       );
     }
 
+    await this.assertFolderInProperty(dto.folderId, lease.propertyId);
+
     const { storedFile, uploadUrl } =
       await this.storedFileService.createForPresignedUpload({
         originalFilename: dto.filename,
@@ -567,7 +784,8 @@ export class DocumentsService {
       data: {
         name: dto.name,
         category: dto.category,
-        visibility: dto.visibility,
+        permission: dto.permission,
+        folderId: dto.folderId ?? null,
         leaseId,
         uploadedById: userId,
         storedFileId: storedFile.id,
@@ -575,15 +793,46 @@ export class DocumentsService {
       include: { storedFile: true },
     });
 
+    this.logAudit(DocumentAuditAction.UPLOAD, {
+      documentId: document.id,
+      propertyId: lease.propertyId,
+      actorId: userId,
+      metadata: { name: dto.name, category: dto.category, leaseId },
+    });
+
     return { uploadUrl, document: this.toDto(document) };
   }
 
   // ============================================
-  // Download
+  // Download / Preview
   // ============================================
 
   /** Time-limited signed download URL for a document's file. */
   async getDownloadUrl(id: string, userId: string): Promise<string> {
+    const { url } = await this.getSignedUrl(
+      id,
+      userId,
+      DocumentAuditAction.DOWNLOAD,
+    );
+    return url;
+  }
+
+  /**
+   * Signed URL for in-app preview, plus the mime type so the client can choose
+   * a renderer (image / PDF / open-externally). Logs a PREVIEW action.
+   */
+  async getPreviewUrl(
+    id: string,
+    userId: string,
+  ): Promise<{ url: string; mimeType: string }> {
+    return this.getSignedUrl(id, userId, DocumentAuditAction.PREVIEW);
+  }
+
+  private async getSignedUrl(
+    id: string,
+    userId: string,
+    action: DocumentAuditAction,
+  ): Promise<{ url: string; mimeType: string }> {
     const document = await this.prisma.document.findUnique({
       where: { id },
       include: { storedFile: true },
@@ -599,10 +848,21 @@ export class DocumentsService {
     }
 
     if (!document.storedFile) {
-      throw new BadRequestException('This document has no file to download');
+      throw new BadRequestException('This document has no file');
     }
 
-    return this.storedFileService.getDownloadUrl(document.storedFile);
+    const url = await this.storedFileService.getDownloadUrl(
+      document.storedFile,
+    );
+
+    const propertyId = await this.resolvePropertyId(document);
+    this.logAudit(action, {
+      documentId: id,
+      propertyId,
+      actorId: userId,
+    });
+
+    return { url, mimeType: document.storedFile.mimeType };
   }
 
   // ============================================
@@ -637,7 +897,7 @@ export class DocumentsService {
         name: dto.name,
         category: dto.category,
         // Required documents are always shared with the tenant.
-        visibility: DocumentVisibility.SHARED,
+        permission: DocumentPermission.LANDLORD_AND_TENANT,
         status: DocumentStatus.REQUESTED,
         requestedAt: new Date(),
         leaseId,
@@ -721,6 +981,13 @@ export class DocumentsService {
     if (previousStoredFileId && previousStoredFileId !== storedFile.id) {
       await this.storedFileService.delete(previousStoredFileId);
     }
+
+    this.logAudit(DocumentAuditAction.UPLOAD, {
+      documentId: updated.id,
+      propertyId: document.lease.propertyId,
+      actorId: userId,
+      metadata: { name: updated.name, fulfilledRequest: true },
+    });
 
     const tenant = await this.prisma.user.findUnique({
       where: { id: userId },

@@ -273,7 +273,7 @@
       "INSURANCE": "Insurance",
       "WARRANTY": "Warranty",
       "METER_READING": "Meter Reading",
-      "PROPERTY_PHOTO": "Property Photo",
+      "PROPERTY_PLAN": "Property Plan",
       "INVOICE": "Invoice",
       "MANUAL": "Manual",
       "LEASE_AGREEMENT": "Lease Agreement",
@@ -284,13 +284,51 @@
       "LEGAL": "Municipality / Legal Documents",
       "PROPERTY_INFO": "Property Information",
       "TENANT_DOCUMENT": "Tenant Documents",
+      "RECEIPT": "Receipt",
       "CONTRACT": "Contract",
       "OTHER": "Other"
     },
-    "visibility": {
-      "label": "Who can see this?",
-      "PRIVATE": "Only you can see this",
-      "SHARED": "You and the tenant"
+    "permission": {
+      "label": "Who can access this?",
+      "LANDLORD_ONLY": "Only me",
+      "LANDLORD_AND_TENANT": "Me and the tenant"
+    },
+    "folders": {
+      "root": "All",
+      "new": "New Folder",
+      "newTitle": "Create Folder",
+      "name": "Folder name",
+      "systemLabel": "System folder",
+      "delete": "Delete folder",
+      "createSuccess": "Folder created",
+      "createError": "Failed to create folder",
+      "deleteSuccess": "Folder deleted",
+      "deleteError": "Failed to delete folder",
+      "system": {
+        "CONTRACTS": "Contracts",
+        "RECEIPTS": "Receipts",
+        "PROPERTY_PLANS": "Property Plans",
+        "INSURANCE": "Insurance",
+        "MUNICIPALITY": "Municipality",
+        "GENERAL": "General"
+      }
+    },
+    "preview": {
+      "openExternally": "Open externally",
+      "cannotPreview": "This file can't be previewed in the app.",
+      "error": "Could not open this file"
+    },
+    "selection": {
+      "count": "{{count}} selected",
+      "delete": "Delete",
+      "move": "Move",
+      "moveTitle": "Move to folder",
+      "confirmDeleteTitle": "Delete documents?",
+      "confirmDelete": "Delete {{count}} document(s)? This can't be undone.",
+      "deleteSuccess": "Documents deleted",
+      "deleteError": "Failed to delete documents",
+      "moveSuccess": "Documents moved",
+      "moveError": "Failed to move documents"
     }
   },
   "requiredDocs": {

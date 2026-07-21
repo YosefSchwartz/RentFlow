@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsApi } from '../api/documents';
-import type { DocumentCategory, DocumentVisibility } from '../types';
+import type { DocumentCategory, DocumentPermission } from '../types';
 
 // Query keys
 export const documentKeys = {
@@ -49,15 +49,24 @@ export const useUploadPropertyDocument = () => {
       file,
       category,
       name,
-      visibility,
+      permission,
+      folderId,
     }: {
       propertyId: string;
       file: { uri: string; name: string; type: string };
       category: DocumentCategory;
       name?: string;
-      visibility?: DocumentVisibility;
+      permission?: DocumentPermission;
+      folderId?: string | null;
     }) =>
-      documentsApi.uploadForProperty(propertyId, file, category, name, visibility),
+      documentsApi.uploadForProperty(
+        propertyId,
+        file,
+        category,
+        name,
+        permission,
+        folderId
+      ),
     onSuccess: (_, { propertyId }) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.byProperty(propertyId) });
     },
@@ -140,7 +149,7 @@ export const useUploadLeaseDocument = () => {
   });
 };
 
-// Update document (rename, change category)
+// Update document (rename, change category, change permission, move)
 export const useUpdateDocument = () => {
   const queryClient = useQueryClient();
 
@@ -150,7 +159,12 @@ export const useUpdateDocument = () => {
       data,
     }: {
       documentId: string;
-      data: { name?: string; category?: DocumentCategory };
+      data: {
+        name?: string;
+        category?: DocumentCategory;
+        permission?: DocumentPermission;
+        folderId?: string | null;
+      };
       propertyId?: string;
     }) => documentsApi.update(documentId, data),
     onSuccess: (_, { propertyId }) => {
@@ -170,6 +184,52 @@ export const useDeleteDocument = () => {
     mutationFn: (documentId: string) => documentsApi.delete(documentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all });
+    },
+  });
+};
+
+// Fetch a signed preview URL (+ mime type). A mutation because it triggers a
+// server-side PREVIEW audit log and should run on demand, not on render.
+export const usePreviewUrl = () => {
+  return useMutation({
+    mutationFn: (documentId: string) => documentsApi.previewUrl(documentId),
+  });
+};
+
+// Bulk delete (selection mode)
+export const useBulkDeleteDocuments = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ids }: { ids: string[]; propertyId?: string }) =>
+      documentsApi.bulkDelete(ids),
+    onSuccess: (_, { propertyId }) => {
+      queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      if (propertyId) {
+        queryClient.invalidateQueries({ queryKey: documentKeys.byProperty(propertyId) });
+      }
+    },
+  });
+};
+
+// Bulk move into a folder (selection mode)
+export const useBulkMoveDocuments = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      ids,
+      folderId,
+    }: {
+      ids: string[];
+      folderId: string | null;
+      propertyId?: string;
+    }) => documentsApi.bulkMove(ids, folderId),
+    onSuccess: (_, { propertyId }) => {
+      queryClient.invalidateQueries({ queryKey: documentKeys.all });
+      if (propertyId) {
+        queryClient.invalidateQueries({ queryKey: documentKeys.byProperty(propertyId) });
+      }
     },
   });
 };

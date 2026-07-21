@@ -20,9 +20,11 @@ import { DocumentsService } from './documents.service';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { GetUploadUrlDto } from './dto/upload-document.dto';
 import { RequestDocumentDto } from './dto/request-document.dto';
+import { BulkDeleteDocumentsDto } from './dto/bulk-delete-documents.dto';
+import { BulkMoveDocumentsDto } from './dto/bulk-move-documents.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { DocumentVisibility } from '@prisma/client';
+import { DocumentPermission } from '@prisma/client';
 
 // 10MB max file size
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -110,6 +112,35 @@ export class DocumentsController {
   }
 
   /**
+   * Get a signed URL (+ mime type) for in-app preview. Logs a PREVIEW action.
+   */
+  @Get('documents/:id/preview-url')
+  getPreviewUrl(@Param('id') id: string, @CurrentUser('id') userId: string) {
+    return this.documentsService.getPreviewUrl(id, userId);
+  }
+
+  // ============================================
+  // Bulk actions (selection mode)
+  // ============================================
+
+  @Post('documents/bulk/delete')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bulkDelete(
+    @Body() dto: BulkDeleteDocumentsDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.documentsService.bulkDelete(dto, userId);
+  }
+
+  @Post('documents/bulk/move')
+  bulkMove(
+    @Body() dto: BulkMoveDocumentsDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.documentsService.bulkMove(dto, userId);
+  }
+
+  /**
    * Delete a document and its associated file from S3
    */
   @Delete('documents/:id/with-file')
@@ -137,7 +168,8 @@ export class DocumentsController {
     file: Express.Multer.File,
     @Body('name') name: string,
     @Body('category') category: string,
-    @Body('visibility') visibility: DocumentVisibility | undefined,
+    @Body('permission') permission: DocumentPermission | undefined,
+    @Body('folderId') folderId: string | undefined,
     @CurrentUser('id') userId: string,
   ) {
     return this.documentsService.uploadDocument(
@@ -146,7 +178,8 @@ export class DocumentsController {
       name,
       category,
       userId,
-      visibility,
+      permission,
+      folderId,
     );
   }
 
@@ -168,7 +201,8 @@ export class DocumentsController {
     file: Express.Multer.File,
     @Body('name') name: string,
     @Body('category') category: string,
-    @Body('visibility') visibility: DocumentVisibility | undefined,
+    @Body('permission') permission: DocumentPermission | undefined,
+    @Body('folderId') folderId: string | undefined,
     @CurrentUser('id') userId: string,
   ) {
     return this.documentsService.uploadLeaseDocument(
@@ -177,7 +211,8 @@ export class DocumentsController {
       name,
       category,
       userId,
-      visibility,
+      permission,
+      folderId,
     );
   }
 

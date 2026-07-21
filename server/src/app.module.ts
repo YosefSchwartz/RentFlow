@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PropertiesModule } from './properties/properties.module';
 import { DocumentsModule } from './documents/documents.module';
+import { FoldersModule } from './folders/folders.module';
 import { PropertyMediaModule } from './property-media/property-media.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
 import { LeasesModule } from './leases/leases.module';
@@ -33,6 +34,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     UsersModule,
     PropertiesModule,
     DocumentsModule,
+    FoldersModule,
     PropertyMediaModule,
     MaintenanceModule,
     LeasesModule,

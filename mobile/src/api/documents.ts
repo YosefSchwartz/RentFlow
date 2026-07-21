@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Document, DocumentCategory, DocumentVisibility } from '../types';
+import type { Document, DocumentCategory, DocumentPermission } from '../types';
 
 export const documentsApi = {
   // Get all documents for a property
@@ -30,7 +30,8 @@ export const documentsApi = {
     file: { uri: string; name: string; type: string },
     category: DocumentCategory,
     documentName?: string,
-    visibility?: DocumentVisibility
+    permission?: DocumentPermission,
+    folderId?: string | null
   ): Promise<Document> => {
     const formData = new FormData();
     formData.append('file', {
@@ -40,8 +41,11 @@ export const documentsApi = {
     } as any);
     formData.append('name', documentName || file.name);
     formData.append('category', category);
-    if (visibility) {
-      formData.append('visibility', visibility);
+    if (permission) {
+      formData.append('permission', permission);
+    }
+    if (folderId) {
+      formData.append('folderId', folderId);
     }
 
     const response = await apiClient.post<Document>(
@@ -96,15 +100,47 @@ export const documentsApi = {
     return response.data;
   },
 
-  // Update document (rename, change category)
+  // Update document (rename, change category, change permission, move)
   update: async (
     documentId: string,
-    data: { name?: string; category?: DocumentCategory }
+    data: {
+      name?: string;
+      category?: DocumentCategory;
+      permission?: DocumentPermission;
+      folderId?: string | null;
+    }
   ): Promise<Document> => {
     const response = await apiClient.patch<Document>(
       `/documents/${documentId}`,
       data
     );
+    return response.data;
+  },
+
+  // Signed URL (+ mime type) for in-app preview
+  previewUrl: async (
+    documentId: string
+  ): Promise<{ url: string; mimeType: string }> => {
+    const response = await apiClient.get<{ url: string; mimeType: string }>(
+      `/documents/${documentId}/preview-url`
+    );
+    return response.data;
+  },
+
+  // Bulk delete (selection mode)
+  bulkDelete: async (ids: string[]): Promise<void> => {
+    await apiClient.post(`/documents/bulk/delete`, { ids });
+  },
+
+  // Bulk move into a folder (null = property root)
+  bulkMove: async (
+    ids: string[],
+    folderId: string | null
+  ): Promise<Document[]> => {
+    const response = await apiClient.post<Document[]>(`/documents/bulk/move`, {
+      ids,
+      folderId,
+    });
     return response.data;
   },
 
