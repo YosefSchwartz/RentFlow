@@ -206,6 +206,17 @@ export class StoredFileService {
     );
   }
 
+  /**
+   * Read a stored file's bytes server-side (e.g. to build a ZIP export).
+   * Thin wrapper over the storage layer — no download logic is duplicated.
+   */
+  async getBuffer(storedFile: Pick<StoredFile, 'storageKey'>): Promise<Buffer> {
+    const { body } = await this.storageService.downloadFile(
+      storedFile.storageKey,
+    );
+    return body;
+  }
+
   /** Map a StoredFile to the business-safe DTO (no storage internals). */
   toDto(storedFile: StoredFile): MediaFileDto {
     return {
