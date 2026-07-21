@@ -458,19 +458,17 @@ const PropertyDocumentsScreen: React.FC = () => {
     setEditName('');
   };
 
-  // Permission badge (icon + short label).
+  // Permission badge — icon only (lock = landlord-only, group = shared).
   const PermissionBadge: React.FC<{ permission: DocumentPermission }> = ({ permission }) => {
     const isShared = permission === 'LANDLORD_AND_TENANT';
     const color = isShared ? theme.colors.secondary : theme.colors.outline;
     return (
-      <Chip
-        compact
-        icon={isShared ? 'account-group' : 'lock'}
-        style={{ backgroundColor: color + '20' }}
-        textStyle={{ color, fontSize: 11 }}
-      >
-        {t(`documents.permission.${permission}`)}
-      </Chip>
+      <Icon
+        name={isShared ? 'account-group' : 'lock'}
+        size={20}
+        color={color}
+        accessibilityLabel={t(`documents.permission.${permission}`)}
+      />
     );
   };
 

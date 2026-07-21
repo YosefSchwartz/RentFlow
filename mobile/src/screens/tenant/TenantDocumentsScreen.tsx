@@ -8,7 +8,6 @@ import {
   Divider,
   IconButton,
   Button,
-  Chip,
   Snackbar,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -98,14 +97,12 @@ const DocumentItem: React.FC<DocumentItemProps> = ({ document, onOpen }) => {
           {t(`documents.categories.${document.category}`)} • {formatDate(document.createdAt)}
         </Text>
       </View>
-      <Chip
-        compact
-        icon="account-group"
-        style={{ backgroundColor: theme.colors.secondary + '20' }}
-        textStyle={{ color: theme.colors.secondary, fontSize: 11 }}
-      >
-        {t('documents.permission.LANDLORD_AND_TENANT')}
-      </Chip>
+      <Icon
+        name="account-group"
+        size={20}
+        color={theme.colors.secondary}
+        accessibilityLabel={t('documents.permission.LANDLORD_AND_TENANT')}
+      />
       <IconButton icon="eye" mode="contained-tonal" size={20} onPress={onOpen} />
     </View>
   );
