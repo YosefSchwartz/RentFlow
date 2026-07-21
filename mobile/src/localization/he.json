@@ -273,7 +273,7 @@
       "INSURANCE": "ביטוח",
       "WARRANTY": "אחריות",
       "METER_READING": "קריאת מונה",
-      "PROPERTY_PHOTO": "תמונת נכס",
+      "PROPERTY_PLAN": "תוכנית נכס",
       "INVOICE": "חשבונית",
       "MANUAL": "מדריך",
       "LEASE_AGREEMENT": "הסכם שכירות",
@@ -284,13 +284,51 @@
       "LEGAL": "מסמכים עירוניים / משפטיים",
       "PROPERTY_INFO": "מידע על הנכס",
       "TENANT_DOCUMENT": "מסמכי דייר",
+      "RECEIPT": "קבלה",
       "CONTRACT": "חוזה",
       "OTHER": "אחר"
     },
-    "visibility": {
-      "label": "מי יכול לראות?",
-      "PRIVATE": "רק אתה יכול לראות",
-      "SHARED": "אתה והדייר"
+    "permission": {
+      "label": "למי יש גישה?",
+      "LANDLORD_ONLY": "רק לי",
+      "LANDLORD_AND_TENANT": "לי ולדייר"
+    },
+    "folders": {
+      "root": "הכול",
+      "new": "תיקייה חדשה",
+      "newTitle": "יצירת תיקייה",
+      "name": "שם התיקייה",
+      "systemLabel": "תיקיית מערכת",
+      "delete": "מחיקת תיקייה",
+      "createSuccess": "התיקייה נוצרה",
+      "createError": "יצירת התיקייה נכשלה",
+      "deleteSuccess": "התיקייה נמחקה",
+      "deleteError": "מחיקת התיקייה נכשלה",
+      "system": {
+        "CONTRACTS": "חוזים",
+        "RECEIPTS": "קבלות",
+        "PROPERTY_PLANS": "תוכניות נכס",
+        "INSURANCE": "ביטוח",
+        "MUNICIPALITY": "עירייה",
+        "GENERAL": "כללי"
+      }
+    },
+    "preview": {
+      "openExternally": "פתיחה באפליקציה חיצונית",
+      "cannotPreview": "לא ניתן להציג תצוגה מקדימה של קובץ זה באפליקציה.",
+      "error": "לא ניתן לפתוח את הקובץ"
+    },
+    "selection": {
+      "count": "{{count}} נבחרו",
+      "delete": "מחיקה",
+      "move": "העברה",
+      "moveTitle": "העברה לתיקייה",
+      "confirmDeleteTitle": "למחוק מסמכים?",
+      "confirmDelete": "למחוק {{count}} מסמכים? לא ניתן לבטל פעולה זו.",
+      "deleteSuccess": "המסמכים נמחקו",
+      "deleteError": "מחיקת המסמכים נכשלה",
+      "moveSuccess": "המסמכים הועברו",
+      "moveError": "העברת המסמכים נכשלה"
     }
   },
   "requiredDocs": {

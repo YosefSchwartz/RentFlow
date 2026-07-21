@@ -90,15 +90,39 @@ export interface CreateLeaseRequest {
   notes?: string;
 }
 
-// Document visibility and required-document workflow status
-export type DocumentVisibility = 'PRIVATE' | 'SHARED';
+// Document access permission (extensible — mirrors the backend enum) and
+// required-document workflow status.
+export type DocumentPermission = 'LANDLORD_ONLY' | 'LANDLORD_AND_TENANT';
 export type DocumentStatus = 'OPTIONAL' | 'REQUESTED' | 'RECEIVED';
+
+// System folder keys (mirrors the backend enum). Used to translate the display
+// name of the six default folders that exist for every property.
+export type SystemFolderKey =
+  | 'CONTRACTS'
+  | 'RECEIPTS'
+  | 'PROPERTY_PLANS'
+  | 'INSURANCE'
+  | 'MUNICIPALITY'
+  | 'GENERAL';
+
+// A folder in a property's document tree (nested via `children`).
+export interface Folder {
+  id: string;
+  name: string;
+  isSystem: boolean;
+  systemKey: SystemFolderKey | null;
+  parentId: string | null;
+  propertyId: string;
+  createdAt: string;
+  children: Folder[];
+}
 
 // Document model - documents can belong to a Property OR a Lease
 export interface Document {
   id: string;
   propertyId?: string;
   leaseId?: string;
+  folderId?: string | null;
   // Set when this document is a maintenance receipt (category RECEIPT),
   // cross-linking it to the request it was uploaded from.
   maintenanceRequestId?: string | null;
@@ -108,7 +132,7 @@ export interface Document {
   fileUrl?: string | null;
   fileSize?: number | null;
   mimeType?: string | null;
-  visibility: DocumentVisibility;
+  permission: DocumentPermission;
   status: DocumentStatus;
   requestedAt?: string | null;
   receivedAt?: string | null;
@@ -125,7 +149,7 @@ export type PropertyDocumentCategory =
   | 'INSURANCE'
   | 'WARRANTY'
   | 'METER_READING'
-  | 'PROPERTY_PHOTO'
+  | 'PROPERTY_PLAN'
   | 'INVOICE'
   | 'MANUAL';
 
@@ -160,7 +184,7 @@ export const PROPERTY_DOCUMENT_CATEGORIES: DocumentCategory[] = [
   'INSURANCE',
   'WARRANTY',
   'METER_READING',
-  'PROPERTY_PHOTO',
+  'PROPERTY_PLAN',
   'INVOICE',
   'MANUAL',
   'OTHER',

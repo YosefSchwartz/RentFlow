@@ -1,5 +1,12 @@
-import { IsString, IsEnum, IsOptional, MinLength, MaxLength } from 'class-validator';
-import { DocumentCategory, DocumentVisibility } from '@prisma/client';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
+import { DocumentCategory, DocumentPermission } from '@prisma/client';
 
 /** Editable business fields of a document (storage is never edited here). */
 export class UpdateDocumentDto {
@@ -13,7 +20,16 @@ export class UpdateDocumentDto {
   @IsOptional()
   category?: DocumentCategory;
 
-  @IsEnum(DocumentVisibility)
+  @IsEnum(DocumentPermission)
   @IsOptional()
-  visibility?: DocumentVisibility;
+  permission?: DocumentPermission;
+
+  /**
+   * Move the document into a folder. `null` moves it to the property root;
+   * omit to leave it where it is.
+   */
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @IsOptional()
+  folderId?: string | null;
 }

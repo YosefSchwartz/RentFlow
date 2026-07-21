@@ -23,7 +23,7 @@ import {
   useFulfillDocument,
 } from '../../hooks/useDocuments';
 import type { RentalsStackParamList, Document, DocumentCategory } from '../../types';
-import { downloadAndShare } from '../../lib/files';
+import DocumentPreviewModal from '../../components/media/DocumentPreviewModal';
 
 // File types a tenant can upload to fulfill a request (mirrors the backend).
 const ALLOWED_FILE_TYPES = [
@@ -48,8 +48,8 @@ const getDocumentIcon = (category: DocumentCategory): string => {
       return 'certificate';
     case 'METER_READING':
       return 'counter';
-    case 'PROPERTY_PHOTO':
-      return 'image';
+    case 'PROPERTY_PLAN':
+      return 'floor-plan';
     case 'INVOICE':
       return 'receipt';
     case 'MANUAL':
@@ -98,12 +98,15 @@ const DocumentItem: React.FC<DocumentItemProps> = ({ document, onOpen }) => {
           {t(`documents.categories.${document.category}`)} • {formatDate(document.createdAt)}
         </Text>
       </View>
-      <IconButton
-        icon="download"
-        mode="contained-tonal"
-        size={20}
-        onPress={onOpen}
-      />
+      <Chip
+        compact
+        icon="account-group"
+        style={{ backgroundColor: theme.colors.secondary + '20' }}
+        textStyle={{ color: theme.colors.secondary, fontSize: 11 }}
+      >
+        {t('documents.permission.LANDLORD_AND_TENANT')}
+      </Chip>
+      <IconButton icon="eye" mode="contained-tonal" size={20} onPress={onOpen} />
     </View>
   );
 };
@@ -130,6 +133,7 @@ const TenantDocumentsScreen: React.FC = () => {
 
   const fulfillDocument = useFulfillDocument();
   const [fulfillingId, setFulfillingId] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
   const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; error: boolean }>({
     visible: false,
     message: '',
@@ -144,17 +148,9 @@ const TenantDocumentsScreen: React.FC = () => {
     if (leaseId) refetchLeaseDocs();
   };
 
-  const handleOpenDocument = async (document: Document) => {
+  const handleOpenDocument = (document: Document) => {
     if (!document.fileUrl) return;
-    try {
-      await downloadAndShare(
-        document.fileUrl,
-        document.name,
-        document.mimeType ?? undefined
-      );
-    } catch (error) {
-      setSnackbar({ visible: true, message: t('requiredDocs.downloadError'), error: true });
-    }
+    setPreviewDoc(document);
   };
 
   const handleUploadRequired = async (document: Document) => {
@@ -353,6 +349,13 @@ const TenantDocumentsScreen: React.FC = () => {
           </Text>
         </View>
       )}
+
+      <DocumentPreviewModal
+        document={previewDoc}
+        visible={previewDoc !== null}
+        onDismiss={() => setPreviewDoc(null)}
+        onError={(message) => setSnackbar({ visible: true, message, error: true })}
+      />
 
       <Snackbar
         visible={snackbar.visible}

@@ -7,33 +7,44 @@ import { Property, LeaseStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
+import { buildDefaultFolders } from '../folders/default-folders';
 
 @Injectable()
 export class PropertiesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreatePropertyDto, ownerId: string): Promise<Property> {
-    return this.prisma.property.create({
-      data: {
-        title: dto.title,
-        address: dto.location.formattedAddress,
-        city: dto.location.city,
-        formattedAddress: dto.location.formattedAddress,
-        street: dto.location.street,
-        streetNumber: dto.location.streetNumber,
-        latitude: dto.location.latitude,
-        longitude: dto.location.longitude,
-        placeId: dto.location.placeId,
-        squareMeters: dto.squareMeters,
-        rooms: dto.rooms,
-        floor: dto.floor,
-        hasBalcony: dto.hasBalcony,
-        hasParking: dto.hasParking,
-        hasStorage: dto.hasStorage,
-        hasShelter: dto.hasShelter,
-        notes: dto.notes,
-        ownerId,
-      },
+    // Create the property and its six default system folders atomically, so a
+    // new property is never left without its document folder structure.
+    return this.prisma.$transaction(async (tx) => {
+      const property = await tx.property.create({
+        data: {
+          title: dto.title,
+          address: dto.location.formattedAddress,
+          city: dto.location.city,
+          formattedAddress: dto.location.formattedAddress,
+          street: dto.location.street,
+          streetNumber: dto.location.streetNumber,
+          latitude: dto.location.latitude,
+          longitude: dto.location.longitude,
+          placeId: dto.location.placeId,
+          squareMeters: dto.squareMeters,
+          rooms: dto.rooms,
+          floor: dto.floor,
+          hasBalcony: dto.hasBalcony,
+          hasParking: dto.hasParking,
+          hasStorage: dto.hasStorage,
+          hasShelter: dto.hasShelter,
+          notes: dto.notes,
+          ownerId,
+        },
+      });
+
+      await tx.folder.createMany({
+        data: buildDefaultFolders(property.id, ownerId),
+      });
+
+      return property;
     });
   }
 

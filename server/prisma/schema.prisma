@@ -24,7 +24,7 @@ enum DocumentCategory {
   INSURANCE
   WARRANTY
   METER_READING
-  PROPERTY_PHOTO
+  PROPERTY_PLAN // Floor plans / building plans (replaces the removed PROPERTY_PHOTO)
   INVOICE
   MANUAL
   // Lease document categories
@@ -44,10 +44,36 @@ enum DocumentCategory {
   OTHER
 }
 
-// Who can see a document.
-enum DocumentVisibility {
-  PRIVATE // Only the property owner
-  SHARED // Owner and the tenant
+// Who can access a document. Extensible: future roles (e.g. co-owner, agent,
+// guarantor) are added as new enum values without another schema redesign.
+enum DocumentPermission {
+  LANDLORD_ONLY // Only the property owner
+  LANDLORD_AND_TENANT // Owner and the tenant
+}
+
+// System-provided folders that exist for every property and cannot be deleted.
+// A stable key (rather than matching on name) so the client can translate the
+// display label and the backend can enforce immutability.
+enum SystemFolderKey {
+  CONTRACTS
+  RECEIPTS
+  PROPERTY_PLANS
+  INSURANCE
+  MUNICIPALITY
+  GENERAL
+}
+
+// Auditable document actions. Extensible: add a value + emit it from the
+// corresponding service path; the DocumentAuditLog.metadata Json carries any
+// action-specific detail (e.g. old/new name, source/target folder).
+enum DocumentAuditAction {
+  UPLOAD
+  DELETE
+  RENAME
+  MOVE
+  PERMISSION_CHANGE
+  PREVIEW
+  DOWNLOAD
 }
 
 // Required-document workflow status.
@@ -124,6 +150,8 @@ model User {
   maintenanceComments MaintenanceComment[]
   maintenanceReads    MaintenanceRead[]
   uploadedDocuments   Document[]
+  createdFolders      Folder[]
+  documentAuditLogs   DocumentAuditLog[]
   sessions            Session[]
   notifications       Notification[]
 
@@ -205,6 +233,7 @@ model Property {
   // Relations
   leases              Lease[]
   documents           Document[]
+  folders             Folder[]
   maintenanceRequests MaintenanceRequest[]
   media               PropertyMedia[]
 
@@ -248,7 +277,7 @@ model Document {
   id          String             @id @default(cuid())
   name        String
   category    DocumentCategory
-  visibility  DocumentVisibility @default(PRIVATE)
+  permission  DocumentPermission @default(LANDLORD_ONLY)
   status      DocumentStatus     @default(OPTIONAL)
   requestedAt DateTime?
   receivedAt  DateTime?
@@ -276,12 +305,73 @@ model Document {
   storedFileId String?     @unique
   storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
 
+  // Optional containing folder. Nullable: pre-existing documents (and any
+  // document not filed into a folder) stay at the property/lease root.
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  auditLogs DocumentAuditLog[]
+
   @@index([propertyId])
   @@index([leaseId])
   @@index([maintenanceRequestId])
   @@index([uploadedById])
   @@index([category])
   @@index([status])
+  @@index([folderId])
+}
+
+// A folder within a property's document tree. Folders nest via `parentId`.
+// Six system folders (isSystem = true, one per SystemFolderKey) are created for
+// every property and cannot be renamed, moved, or deleted.
+model Folder {
+  id        String           @id @default(cuid())
+  name      String
+  isSystem  Boolean          @default(false)
+  // Set only for system folders; null for user-created folders.
+  systemKey SystemFolderKey?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // Self-relation for nesting. Deleting a folder cascades to its children.
+  parentId String?
+  parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderTree")
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  documents Document[]
+
+  @@index([propertyId])
+  @@index([parentId])
+}
+
+// Append-only audit trail of document actions. documentId/actorId are
+// SetNull-nullable so a log row survives deletion of the document or user it
+// references. `metadata` carries action-specific detail without new columns.
+model DocumentAuditLog {
+  id        String              @id @default(cuid())
+  action    DocumentAuditAction
+  metadata  Json?
+  createdAt DateTime            @default(now())
+
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  // Denormalized so the property's audit history is queryable even after the
+  // document row is deleted.
+  propertyId String?
+
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([propertyId])
+  @@index([actorId])
 }
 
 model MaintenanceRequest {

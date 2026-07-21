@@ -7,7 +7,7 @@ import {
   MinLength,
   MaxLength,
 } from 'class-validator';
-import { DocumentCategory, DocumentVisibility } from '@prisma/client';
+import { DocumentCategory, DocumentPermission } from '@prisma/client';
 
 /**
  * DTO for requesting a signed upload URL
@@ -36,7 +36,12 @@ export class GetUploadUrlDto {
   @Min(0)
   fileSize?: number;
 
-  @IsEnum(DocumentVisibility)
+  @IsEnum(DocumentPermission)
   @IsOptional()
-  visibility?: DocumentVisibility;
+  permission?: DocumentPermission;
+
+  /** Optional folder to file the document into (property root when omitted). */
+  @IsString()
+  @IsOptional()
+  folderId?: string;
 }
