@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import {
   Modal,
   Portal,
@@ -15,19 +15,47 @@ import { usePreviewUrl } from '../../hooks/useDocuments';
 import { downloadAndShare } from '../../lib/files';
 import type { Document } from '../../types';
 
-type PreviewKind = 'image' | 'pdf' | 'other';
+type PreviewKind = 'image' | 'pdf' | 'office' | 'other';
+
+const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp'];
+// Office/text types the Google Docs viewer can render inline.
+const OFFICE_EXT = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'];
 
 /** Decide how to render a document from its mime type (with a name fallback). */
 const resolveKind = (mimeType?: string | null, name?: string): PreviewKind => {
   const mime = (mimeType || '').toLowerCase();
-  if (mime.startsWith('image/')) return 'image';
-  if (mime === 'application/pdf') return 'pdf';
-  // Fallback on extension when the mime type is missing/generic.
   const ext = name?.split('.').pop()?.toLowerCase();
-  if (ext && ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext))
+
+  if (mime.startsWith('image/') || (ext && IMAGE_EXT.includes(ext)))
     return 'image';
-  if (ext === 'pdf') return 'pdf';
+  if (mime === 'application/pdf' || ext === 'pdf') return 'pdf';
+  if (
+    mime.includes('word') ||
+    mime.includes('excel') ||
+    mime.includes('spreadsheet') ||
+    mime.includes('presentation') ||
+    mime === 'text/plain' ||
+    mime === 'text/csv' ||
+    (ext && OFFICE_EXT.includes(ext))
+  )
+    return 'office';
   return 'other';
+};
+
+/** Wrap a file URL in the Google Docs viewer so WebView can render it inline. */
+const gviewUrl = (url: string): string =>
+  `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(url)}`;
+
+/**
+ * Source URI for the WebView.
+ * - PDF on iOS: load the file directly — WKWebView renders PDFs natively and
+ *   reliably (no dependency on Google being able to reach the file).
+ * - PDF on Android and all Office files: use the Google Docs viewer, since the
+ *   platform WebView can't render them on its own.
+ */
+const webviewUri = (url: string, kind: PreviewKind): string => {
+  if (kind === 'pdf' && Platform.OS === 'ios') return url;
+  return gviewUrl(url);
 };
 
 interface Props {
@@ -38,9 +66,10 @@ interface Props {
 }
 
 /**
- * Full-screen in-app preview. Images render via expo-image, PDFs via WebView,
- * and anything else offers "open externally" through the OS share sheet. Layout
- * is RTL-safe (no hardcoded left/right).
+ * Full-screen in-app preview. Images render via expo-image; PDFs render inline
+ * (native WebView on iOS, Google viewer on Android); Office files use the
+ * Google viewer. Anything unsupported — or a viewer that fails to load — falls
+ * back to "open externally". Layout is RTL-safe (no hardcoded left/right).
  */
 const DocumentPreviewModal: React.FC<Props> = ({
   document,
@@ -54,12 +83,14 @@ const DocumentPreviewModal: React.FC<Props> = ({
   const [url, setUrl] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [viewerFailed, setViewerFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     if (visible && document) {
       setLoading(true);
       setUrl(null);
+      setViewerFailed(false);
       previewUrl
         .mutateAsync(document.id)
         .then((res) => {
@@ -83,6 +114,7 @@ const DocumentPreviewModal: React.FC<Props> = ({
   }, [visible, document?.id]);
 
   const kind = resolveKind(mimeType ?? document?.mimeType, document?.name);
+  const canRenderInline = kind === 'image' || kind === 'pdf' || kind === 'office';
 
   const handleOpenExternally = async () => {
     if (!url) return;
@@ -92,6 +124,58 @@ const DocumentPreviewModal: React.FC<Props> = ({
       onError?.(t('documents.preview.error'));
     }
   };
+
+  const renderBody = () => {
+    if (loading || !url) {
+      return <ActivityIndicator size="large" color={theme.colors.primary} />;
+    }
+    if (kind === 'image') {
+      return (
+        <Image
+          source={{ uri: url }}
+          style={styles.image}
+          contentFit="contain"
+          transition={150}
+        />
+      );
+    }
+    if ((kind === 'pdf' || kind === 'office') && !viewerFailed) {
+      return (
+        <WebView
+          source={{ uri: webviewUri(url, kind) }}
+          style={styles.webview}
+          originWhitelist={['*']}
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.webviewLoading}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          )}
+          onError={() => setViewerFailed(true)}
+          onHttpError={() => setViewerFailed(true)}
+        />
+      );
+    }
+    // Unsupported type, or the inline viewer could not load the file.
+    return (
+      <View style={styles.fallback}>
+        <Text variant="bodyMedium" style={styles.fallbackText}>
+          {t('documents.preview.cannotPreview')}
+        </Text>
+        <Button
+          mode="contained"
+          icon="open-in-new"
+          onPress={handleOpenExternally}
+        >
+          {t('documents.preview.openExternally')}
+        </Button>
+      </View>
+    );
+  };
+
+  // Footer external-open shortcut, shown only while an inline preview is up.
+  const showFooterButton =
+    !loading && !!url && canRenderInline && !viewerFailed;
 
   return (
     <Portal>
@@ -107,44 +191,16 @@ const DocumentPreviewModal: React.FC<Props> = ({
           <Text variant="titleMedium" numberOfLines={1} style={styles.title}>
             {document?.name ?? ''}
           </Text>
-          <IconButton icon="close" onPress={onDismiss} accessibilityLabel={t('common.close')} />
+          <IconButton
+            icon="close"
+            onPress={onDismiss}
+            accessibilityLabel={t('common.close')}
+          />
         </View>
 
-        <View style={styles.body}>
-          {loading || !url ? (
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          ) : kind === 'image' ? (
-            <Image
-              source={{ uri: url }}
-              style={styles.image}
-              contentFit="contain"
-              transition={150}
-            />
-          ) : kind === 'pdf' ? (
-            <WebView
-              source={{ uri: url }}
-              style={styles.webview}
-              originWhitelist={['*']}
-              startInLoadingState
-            />
-          ) : (
-            <View style={styles.fallback}>
-              <Text variant="bodyMedium" style={styles.fallbackText}>
-                {t('documents.preview.cannotPreview')}
-              </Text>
-              <Button
-                mode="contained"
-                icon="open-in-new"
-                onPress={handleOpenExternally}
-              >
-                {t('documents.preview.openExternally')}
-              </Button>
-            </View>
-          )}
-        </View>
+        <View style={styles.body}>{renderBody()}</View>
 
-        {/* Always allow opening externally for previewable types too. */}
-        {!loading && url && kind !== 'other' && (
+        {showFooterButton && (
           <Button
             mode="text"
             icon="open-in-new"
@@ -186,6 +242,12 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     width: '100%',
+    backgroundColor: 'transparent',
+  },
+  webviewLoading: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fallback: {
     alignItems: 'center',
