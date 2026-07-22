@@ -26,6 +26,15 @@ This is a monorepo containing two applications plus shared context.
 
 Each application has its own detailed `README.md` ([backend](server/README.md), [mobile](mobile/README.md)).
 
+> **Naming transition (KeyNest → RentFlow).** The product is now **RentFlow**;
+> all branding, documentation, and AWS resource naming use it. Internal runtime
+> identifiers (database name, Docker container/volume/network names, local S3
+> bucket names, npm package names, mobile bundle id `com.keynest.app`, and the
+> `keynest.app` domain) still use `keynest`. These are technical identifiers,
+> not user-facing branding, and are intentionally left unchanged to avoid
+> breaking local dev, published-app identity, and DNS. Renaming them is tracked
+> as separate follow-up work (see [risks](#naming-follow-ups) below).
+
 ---
 
 ## Core domain
@@ -51,7 +60,17 @@ There is no separate `TenantAssignment` model. Tenant onboarding happens through
 - Authorization enforced inside services, based on ownership and active-lease relationships (no `@Roles` decorator)
 - Shared `StoredFile` pipeline over an S3 storage provider (LocalStack in dev)
 
-**Implemented modules:** `auth`, `users`, `properties`, `leases`, `documents`, `property-media`, `maintenance`, `notifications`, `media` + `storage`, `prisma`.
+**Implemented modules:** `auth`, `users`, `properties`, `leases`, `documents`, `folders`, `receipts`, `ai`, `property-media`, `maintenance`, `notifications`, `media` + `storage`, `prisma`.
+
+**Document platform.** Documents file into a per-property **folder** tree (six
+undeletable system folders per property) with an extensible permission model
+(`LANDLORD_ONLY` / `LANDLORD_AND_TENANT`) and a full audit log. **Receipts** are
+first-class documents with structured metadata (date, tax year, source), auto-
+filed under `Receipts → <tax year>`, with a per-year dashboard and CSV/ZIP
+export. An **AI platform** analyzes documents asynchronously (summary, category
+suggestion, normalized extracted fields) through a provider-agnostic
+`AIProvider` abstraction — AWS Bedrock is the first provider, with a mock
+provider for local/dev; the AI prediction never overwrites the user's decision.
 
 ### Getting started
 
@@ -104,7 +123,15 @@ All UI supports **English (LTR)** and **Hebrew (RTL)** via i18next. UI strings u
 
 ## Deployment direction
 
-Development is local-first. The future deployment target is AWS: ECS Fargate, RDS PostgreSQL, S3, CloudFront, and Cognito.
+Development is local-first. **Staging runs on AWS**, fully managed as
+Infrastructure-as-Code (OpenTofu) under [`infrastructure/`](infrastructure/):
+ECS Fargate behind an ALB, RDS PostgreSQL (private), S3, ECR, and AWS Bedrock
+(AI) — all least-privilege via the ECS task role, no static credentials.
+Deploys run through GitHub Actions OIDC (`.github/workflows/backend-deploy.yml`):
+build image → `prisma migrate deploy` (one-off in-VPC task) → rolling ECS
+update. CloudFront and Route 53/ACM remain future work. (An `identity` Cognito
+module exists in Terraform but the app currently signs its own JWTs and uses
+DB-backed sessions rather than Cognito.)
 
 ---
 
@@ -113,3 +140,24 @@ Development is local-first. The future deployment target is AWS: ECS Fargate, RD
 Before making changes, read [`CLAUDE.md`](CLAUDE.md). It documents the architecture rules, the feature-completion checklist, and the guardrails every change is expected to follow (API contract validation, localization, RTL, permissions, notifications, and more).
 
 Guiding principle: **choose the simplest solution that scales reasonably.** Prefer simplicity, maintainability, clear UX, and incremental evolution over rewrites.
+
+---
+
+## Naming follow-ups
+
+The KeyNest → RentFlow rebrand renamed all branding, documentation, and AWS
+resource naming. The following **internal `keynest` identifiers** were left
+unchanged on purpose (renaming them risks breaking running systems and delivers
+no user-facing value). Tackle them deliberately, each with its own migration:
+
+| Identifier | Where | Why deferred |
+| --- | --- | --- |
+| Database name / user / password | `docker-compose*.yml`, `.env*` (`keynest` / `keynest_secret`) | Coupled across compose, env, and Prisma; requires recreating local volumes. |
+| Docker resources | container/network names (`keynest-db`, `keynest-network`, …) | Cosmetic; recreate on next `up`. |
+| Local S3 bucket / Secrets names | `keynest-local-documents`, `keynest-legal`, `keynest/local/app-secrets` | Coupled to LocalStack init + code defaults + env; rename all together. |
+| npm package names | `server/package.json`, `mobile/package.json` (`keynest` / `keynest-mobile`) | Internal; safe but low value. |
+| Mobile bundle id / slug | `com.keynest.app`, slug `keynest` | Changing published-app identity is a store-level decision, not a rename. |
+| App domain | `keynest.app` (mobile links, legal pages) | Depends on a real DNS/domain decision (Route 53/ACM). |
+
+The mobile i18n key `auth.joinKeynest` also retains the old spelling (its
+*value* now reads "RentFlow"); rename the key when convenient.

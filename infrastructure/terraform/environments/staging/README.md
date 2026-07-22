@@ -7,11 +7,11 @@ between environments.
 
 | File | Purpose |
 | --- | --- |
-| `main.tf` | Backend block + AWS provider + `module "foundation"` call. No hardcoded backend values. |
-| `variables.tf` | Thin input interface (provider + values passed through to foundation). |
-| `outputs.tf` | Surfaces foundation outputs (`name_prefix`, `common_tags`, `account_id`). |
+| `main.tf` | Backend block + AWS provider + the full environment stack: `foundation`, `networking`, `security`, `identity`, `storage`, `database`, `compute`, `notifications`, `container_registry`, `cicd`, plus the generated app secrets (DB / JWT / OTP). No hardcoded backend values. |
+| `variables.tf` | Thin input interface (provider + values passed through to the modules). |
+| `outputs.tf` | Surfaces environment outputs (naming/tags plus module outputs such as `ecr_repository_url`). |
 | `backend.hcl` | Remote-state backend settings (bucket, state key, DynamoDB lock table). |
-| `staging.tfvars` | Environment-varying values (region, profile, account id, tags). |
+| `staging.tfvars` | Environment-varying values (region, profile, account id, tags, sizing, AI platform config). |
 
 ## Remote state
 
@@ -42,10 +42,28 @@ aws sso login --profile rentflow-staging
 # Initialize the S3 backend (values come from backend.hcl)
 tofu init -backend-config=backend.hcl
 
-tofu plan  -var-file=staging.tfvars
-tofu apply -var-file=staging.tfvars
+# Two required, never-committed vars:
+#   backend_image_tag — private-ECR backend image tag (git SHA); build + push first.
+#   ses_sender_email  — verified SES sender address for OTP email.
+# (JWT / OTP / DB secrets are auto-generated in main.tf and stored in Secrets
+#  Manager — they are NOT passed as vars.)
+tofu plan  -var-file=staging.tfvars \
+  -var "backend_image_tag=$(git rev-parse --short HEAD)" \
+  -var "ses_sender_email=$SES_SENDER_EMAIL"
+tofu apply -var-file=staging.tfvars \
+  -var "backend_image_tag=$(git rev-parse --short HEAD)" \
+  -var "ses_sender_email=$SES_SENDER_EMAIL"
 ```
 
 Because each environment is its own root module with its own state key,
 switching environments is just `cd`-ing into the other folder — no
 `-reconfigure` juggling.
+
+## AI platform config
+
+`staging.tfvars` also carries the AI document-intelligence platform config
+(`ai_enabled`, `ai_provider`, `ai_model_id`). AI is **enabled** in staging using
+an Amazon Bedrock inference profile; `main.tf` derives the scoped
+`bedrock:InvokeModel` grant on the ECS task role from these values (opt-in — no
+Bedrock access is granted when `ai_enabled` is false or the provider is not
+`bedrock`).

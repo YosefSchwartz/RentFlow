@@ -3,7 +3,7 @@
 Property management platform for landlords managing 2-20 rental properties.
 
 This is the RentFlow **backend** (REST API). The Expo/React Native client lives
-in [`../keynest-mobile`](../keynest-mobile).
+in [`../mobile`](../mobile).
 
 ## Tech Stack
 
@@ -12,6 +12,7 @@ in [`../keynest-mobile`](../keynest-mobile).
 - PostgreSQL
 - JWT access tokens + rotating refresh-token sessions
 - AWS S3 storage (LocalStack in development)
+- AWS Bedrock for AI document intelligence (provider-agnostic; mock provider in development)
 - Docker
 
 ## Quick Start (Docker - Recommended)
@@ -149,24 +150,72 @@ use. Refresh tokens are stored only as bcrypt hashes in the `Session` table. A
 
 Documents attach to a **Property** or a **Lease**. Physical files live in a
 separate `StoredFile` (see Storage & Media Architecture). Uploads support both a
-direct multipart upload and a signed-URL flow.
+direct multipart upload and a signed-URL flow. Access is governed by an
+extensible `DocumentPermission` (`LANDLORD_ONLY | LANDLORD_AND_TENANT`, replacing
+the old `PRIVATE/SHARED` visibility). Documents may be filed into per-property
+**folders**, and every action is recorded in a `DocumentAuditLog`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/properties/:propertyId/documents` | List property documents |
 | GET | `/leases/:leaseId/documents` | List lease documents |
 | GET | `/documents/:id` | Get document details |
-| PATCH | `/documents/:id` | Update document metadata |
+| PATCH | `/documents/:id` | Update document metadata (name, category, permission, folder) |
 | DELETE | `/documents/:id` | Delete document record |
 | DELETE | `/documents/:id/with-file` | Delete document + its stored file |
+| POST | `/documents/bulk/delete` | Bulk delete documents (selection mode) |
+| POST | `/documents/bulk/move` | Bulk move documents into a folder |
 | POST | `/properties/:propertyId/documents/upload` | Direct multipart upload (property) |
 | POST | `/leases/:leaseId/documents/upload` | Direct multipart upload (lease) |
 | POST | `/properties/:propertyId/documents/upload-url` | Get a signed upload URL (property) |
 | POST | `/leases/:leaseId/documents/upload-url` | Get a signed upload URL (lease) |
-| GET | `/documents/:id/download-url` | Get a signed download URL |
+| GET | `/documents/:id/download-url` | Get a signed download URL (logs a DOWNLOAD audit event) |
+| GET | `/documents/:id/preview-url` | Get a signed URL + mime type for in-app preview |
 | POST | `/leases/:leaseId/documents/request` | Landlord requests a document (no file yet) |
 | POST | `/documents/:id/fulfill` | Tenant uploads a file to fulfill a request |
 | GET | `/properties/:propertyId/required-documents` | List required docs across a property's leases |
+
+### Folders
+
+Per-property document folder tree (nesting supported). Six system folders
+(Contracts, Receipts, Property Plans, Insurance, Municipality, General) are
+seeded on property creation and cannot be renamed, moved, or deleted.
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| GET | `/properties/:propertyId/folders` | Folder tree for a property | Owner / Tenant |
+| POST | `/properties/:propertyId/folders` | Create a folder | Owner |
+| PATCH | `/folders/:id` | Rename / re-parent a folder | Owner |
+| DELETE | `/folders/:id` | Delete a (non-system) folder | Owner |
+
+### Receipts
+
+Receipts are first-class `RECEIPT` documents plus a `Receipt` metadata row
+(`receiptDate`, `taxYear`, `source`, related lease/maintenance, notes), auto-
+filed under `Receipts → <taxYear>`. Owner-only. Maintenance receipts flow
+through the same pipeline (source `MAINTENANCE`); the file is never duplicated.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/properties/:propertyId/receipts/upload` | Manual receipt upload (multipart) |
+| GET | `/properties/:propertyId/receipts` | List receipts (optional `?year=`) |
+| GET | `/properties/:propertyId/receipts/summary` | Per-tax-year dashboard (count + total storage) |
+| GET | `/properties/:propertyId/receipts/export.csv` | Export receipt metadata as CSV (optional `?year=`) |
+| GET | `/properties/:propertyId/receipts/export.zip` | Export receipt files as a ZIP, foldered by year |
+
+### AI (document intelligence)
+
+Asynchronous, provider-agnostic analysis (summary, category suggestion,
+normalized extracted fields). Uploads enqueue a background `AiJob`
+(`QUEUED → PROCESSING → COMPLETED/FAILED`) — analysis never blocks upload. The
+AI prediction (`AiClassification.predictedCategory`) never overwrites the
+user's `approvedCategory`.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/documents/:id/ai` | AI status, summary, prediction, approved category, extracted fields |
+| POST | `/documents/:id/ai/retry` | Manually re-queue analysis |
+| POST | `/documents/:id/ai/category` | Record the user's category decision (becomes official) |
 
 ### Property Media (gallery)
 
@@ -192,6 +241,8 @@ direct multipart upload and a signed-URL flow.
 | GET | `/requests/:id/attachments` | List evidence attachments |
 | POST | `/requests/:id/attachments/upload` | Upload an attachment (multipart) |
 | DELETE | `/attachments/:attachmentId` | Delete an attachment |
+| GET | `/requests/:id/receipts` | List financial receipts (resolved requests) |
+| POST | `/requests/:id/receipts/upload` | Upload a receipt — a RECEIPT `Document` cross-linked to the request |
 
 ### Notifications
 
@@ -228,9 +279,12 @@ src/
 ├── users/                # Profile, dashboard, account deletion
 ├── properties/           # Property CRUD (owner-scoped, Google Places fields)
 ├── leases/               # Leases + tenant activation-code redemption
-├── documents/            # Property & lease documents + required-doc workflow
+├── documents/            # Property & lease documents, folders, permissions, audit log
+├── folders/              # Per-property document folder tree (+ system folders)
+├── receipts/             # Receipt metadata, tax-year filing, CSV/ZIP export
+├── ai/                   # AI platform: AIProvider abstraction, mock + Bedrock, async jobs
 ├── property-media/       # Property gallery photos/videos
-├── maintenance/          # Requests, comments, read-tracking, attachments
+├── maintenance/          # Requests, comments, read-tracking, attachments, receipts
 ├── notifications/        # In-app notifications
 ├── media/                # Shared StoredFile pipeline + media validation
 ├── storage/              # Storage abstraction (S3 provider, LocalStack/AWS)
@@ -269,6 +323,14 @@ LEGAL_BUCKET=keynest-legal
 
 # Google Maps / Places (property location autocomplete)
 GOOGLE_MAPS_API_KEY=
+
+# AI document intelligence. Provider-agnostic; business code talks only to the
+# AIProvider abstraction. Defaults are safe for local dev (feature off; mock
+# provider needs no AWS). Bedrock authenticates via the ECS task role in AWS.
+AI_ENABLED=false                                       # enqueue background analysis on upload
+AI_PROVIDER=mock                                       # mock | bedrock
+AI_MODEL_ID=eu.anthropic.claude-haiku-4-5-20251001-v1:0 # Bedrock model / inference-profile id
+AI_AWS_REGION=eu-central-1                             # falls back to AWS_REGION
 ```
 
 ## Development Commands
@@ -301,7 +363,7 @@ platform. Business meaning is fully separated from physical storage.
 
 ```
 Business entities  Document │ PropertyMedia │ MaintenanceAttachment │ (future: LeaseDocument, InspectionReport, Signature)
-                       │  business fields only (category, visibility, status, ownership) + storedFileId
+                       │  business fields only (category, permission, status, ownership) + storedFileId
                        ▼
 Media layer        StoredFile (entity)  ←  StoredFileService  (the ONE upload/download/delete pipeline)
                        │  storage metadata only (storageKey, mimeType, size, checksum, dimensions, provider…)
@@ -317,7 +379,7 @@ Storage layer      StorageService          ← key-only facade (bucket, public U
 ### Business vs. storage split
 
 - A **business entity** (e.g. `Document`) holds only business data — category,
-  visibility, status, ownership, workflow — plus a `storedFileId` FK. It has no
+  permission, status, ownership, workflow — plus a `storedFileId` FK. It has no
   `url`/`fileName`/`mimeType`/`size` columns.
 - A **`StoredFile`** holds only physical-storage metadata and never knows *why*
   it exists. One business entity references one `StoredFile` today; supporting

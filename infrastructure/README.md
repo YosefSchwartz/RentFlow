@@ -5,13 +5,13 @@ AWS resources are managed here**, in [OpenTofu](https://opentofu.org)
 (Terraform-compatible). The only manually-created resources are the minimum
 bootstrap prerequisites, documented below and in [`bootstrap/`](bootstrap/).
 
-This folder is part of the RentFlow monorepo alongside [`../keynest`](../keynest)
-(backend) and [`../keynest-mobile`](../keynest-mobile) (mobile).
+This folder is part of the RentFlow monorepo alongside [`../server`](../server)
+(backend) and [`../mobile`](../mobile) (mobile).
 
-> **Note on directory names.** The application folders are still named
-> `keynest/` and `keynest-mobile/`, and internal runtime identifiers (database
-> name, Docker resources, local bucket names, package names, mobile bundle id)
-> also still use `keynest`. These are technical identifiers, not branding, and
+> **Note on directory names.** The application folders are `server/` and
+> `mobile/`, but internal runtime identifiers (database name, Docker resources,
+> local bucket names, package names, mobile bundle id) still use `keynest`.
+> These are technical identifiers, not branding, and
 > renaming them is a separate, higher-risk change tracked as follow-up work (see
 > the repo root README). The RentFlow **AWS naming convention below is
 > authoritative for all new/managed AWS resources.**
@@ -67,8 +67,8 @@ aws sts get-caller-identity --profile rentflow-staging   # verify the account id
   `terraform/modules/`. `foundation` (naming/tags/validation), `networking`
   (VPC), `security` (VPC flow logs), `identity` (Cognito), `storage` (S3),
   `database` (RDS PostgreSQL), `compute` (ECS Fargate + ALB),
-  `container_registry` (ECR), and `cicd` (GitHub OIDC) are implemented; the rest
-  are scaffolded.
+  `container_registry` (ECR), `cicd` (GitHub OIDC), and `notifications` (SES
+  transactional email) are implemented; the rest are scaffolded.
 - **Naming & tagging:** every resource will be named `rentflow-<env>-<suffix>`
   and carry the standard tag set, defined in the shared modules as they are
   built (kept in one place, never duplicated per environment).
@@ -126,7 +126,7 @@ infrastructure/
     │   ├── cloudfront/        # CDN
     │   ├── lambda/            # function primitive
     │   ├── api_gateway/       # HTTP API surface
-    │   ├── notifications/     # SNS (+ future push)
+    │   ├── notifications/     # ✅ SES transactional email — OTP (+ future SNS push)
     │   └── monitoring/        # CloudWatch, Budgets, Cost Anomaly Detection
     │
     └── environments/          # one root module per environment (run tofu here)
@@ -136,9 +136,9 @@ infrastructure/
 
 `foundation/` (Layer 2), `networking/` (Layer 3), `security/` (Layer 4),
 `identity/` (Layer 5), `storage/` (Layer 6), `database/` (Layer 7), and
-`compute/` (Layer 8), `container_registry/` (Layer 10), and `cicd/` (Layer 11)
-are **implemented** (networking also provides Layer 9 VPC endpoints). The
-remaining modules are still **structure only** — each has a `README.md`
+`compute/` (Layer 8), `container_registry/` (Layer 10), `cicd/` (Layer 11), and
+`notifications/` (SES OTP email) are **implemented** (networking also provides
+Layer 9 VPC endpoints). The remaining modules are still **structure only** — each has a `README.md`
 describing its purpose, planned resources, and expected inputs/outputs, with no
 resources yet.
 
@@ -254,13 +254,15 @@ tofu init -backend-config=backend.hcl
 
 # plan / apply with staging values. Two required, never-committed vars:
 #   backend_image_tag — private-ECR image tag (git SHA); build + push it first.
-#   jwt_secret        — backend JWT signing secret.
+#   ses_sender_email  — the verified SES sender address for OTP email.
+# (JWT / OTP / DB secrets are auto-generated in main.tf via random_password and
+#  stored in Secrets Manager — they are NOT passed as vars.)
 tofu plan -var-file=staging.tfvars \
   -var "backend_image_tag=$(git rev-parse --short HEAD)" \
-  -var "jwt_secret=$JWT_SECRET"
+  -var "ses_sender_email=$SES_SENDER_EMAIL"
 tofu apply -var-file=staging.tfvars \
   -var "backend_image_tag=$(git rev-parse --short HEAD)" \
-  -var "jwt_secret=$JWT_SECRET"
+  -var "ses_sender_email=$SES_SENDER_EMAIL"
 ```
 
 OpenTofu reads the AWS profile from `staging.tfvars` (`aws_profile =
@@ -283,19 +285,20 @@ SHA=$(git rev-parse --short HEAD)
 aws ecr get-login-password --profile rentflow-staging --region eu-central-1 \
   | docker login --username AWS --password-stdin "${ECR_URL%/*}"
 
-# 2. Build for the Fargate architecture (linux/amd64) from ./keynest and tag
+# 2. Build for the Fargate architecture (linux/amd64) from ./server and tag
 #    with the immutable git SHA (no ":latest" — tags are immutable).
-docker build --platform linux/amd64 -t "$ECR_URL:$SHA" ./keynest
+docker build --platform linux/amd64 -t "$ECR_URL:$SHA" ./server
 
 # 3. Push the SHA tag.
 docker push "$ECR_URL:$SHA"
 
-# 4. Point ECS at the pushed image + provide the JWT secret. Terraform updates
-#    the task definition; DB credentials are injected from Secrets Manager.
+# 4. Point ECS at the pushed image. Terraform updates the task definition; DB
+#    password, JWT, and OTP secrets are auto-generated in main.tf and injected
+#    from Secrets Manager (no secret vars on the command line).
 cd infrastructure/terraform/environments/staging
 tofu apply -var-file=staging.tfvars \
   -var "backend_image_tag=$SHA" \
-  -var "jwt_secret=$(openssl rand -base64 48)"   # or reuse an existing value
+  -var "ses_sender_email=$SES_SENDER_EMAIL"
 ```
 
 Notes:
@@ -308,22 +311,27 @@ Notes:
 
 #### Runtime configuration (injected into the task)
 
-The task definition provides the backend's config; **DB credentials come from
-the RDS-managed Secrets Manager secret** (never hardcoded, never in state):
+The task definition provides the backend's config. The app signs its **own**
+JWTs (HS256) and uses DB-backed refresh sessions — it does **not** use Cognito at
+runtime, so no `COGNITO_*` vars are injected. Non-secret config is passed as plain
+`environment` entries; secrets are generated in `main.tf` (`random_password`),
+stored in Secrets Manager, and injected via the `secrets` block (never in state,
+never in the task definition):
 
 | Variable | Source |
 | --- | --- |
-| `AWS_REGION`, `S3_BUCKET_NAME`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_ISSUER` | plain `environment` (module + storage/identity outputs) |
-| `DB_USERNAME`, `DB_PASSWORD` | `secrets` block → RDS secret JSON keys (injected by the ECS **execution** role) |
-| `DATABASE_URL` | composed at container start from the above (`sslmode=require`); password URL-encoded via `node` |
-| `JWT_SECRET` | `environment`, from the `-var "jwt_secret=…"` at apply (see below) |
+| `NODE_ENV`, `PORT`, `AWS_REGION`, `S3_BUCKET_NAME` | plain `environment` (module + storage outputs) |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME` | plain `environment` (database module outputs; non-secret parts) |
+| `EMAIL_PROVIDER`, `SES_SENDER_EMAIL` | plain `environment` (SES OTP delivery; notifications module) |
+| `AI_ENABLED`, `AI_PROVIDER`, `AI_MODEL_ID`, `AI_AWS_REGION` | plain `environment` (AI platform, PR3; feature-flagged by `ai_enabled`) |
+| `DB_PASSWORD`, `JWT_SECRET`, `OTP_SECRET` | `secrets` block → generated Secrets Manager secrets (injected by the ECS **execution** role) |
+| `DATABASE_URL` | composed at container start from the DB parts (`sslmode=require`); password URL-encoded via `node` |
 
-IAM: the ECS **execution** role gets `secretsmanager:GetSecretValue` on the RDS
-secret ARN **only** (no wildcards). The **task role stays empty** — the app
-needs no direct AWS call for DB/Cognito. `JWT_SECRET` is a plain task-def env var
-because IAM is scoped to the RDS secret only; move it to its own Secrets Manager
-secret + scoped grant when that constraint is relaxed. **S3 write access** (task
-role) is a separate future grant.
+IAM: the ECS **execution** role gets `secretsmanager:GetSecretValue` scoped to
+exactly the DB, JWT, and OTP secret ARNs (no wildcards). The **task role** carries
+scoped, opt-in inline policies: **S3** object access (documents / media /
+attachments), **SES** send from the verified sender identity (OTP email),
+**Bedrock** `InvokeModel` when AI is enabled, and **SSM Messages** for ECS Exec.
 
 ---
 
@@ -369,15 +377,22 @@ Modules are added **incrementally**, wired into each environment root
 7. **private connectivity** — VPC endpoints (S3, ECR, Logs, Secrets Manager), no NAT ✅ *(done — Layer 9, in `networking`)*
 8. **container_registry** — private ECR repo + lifecycle ✅ *(done — Layer 10)*
 9. **cicd** — GitHub Actions OIDC + deploy role ✅ *(done — Layer 11; workflow at `.github/workflows/backend-deploy.yml`)*
-10. **acm + route53** — certificates and DNS *(future)*
-11. **cloudfront** — CDN + signed downloads *(future)*
-12. **lambda + api_gateway** — serverless surfaces as needed *(future)*
-13. **notifications** — SNS fan-out (email / push) *(future)*
+10. **notifications** — SES transactional email (OTP) ✅ *(done; wired in staging `main.tf` as `module "notifications"`; SNS push is future)*
+11. **acm + route53** — certificates and DNS *(future)*
+12. **cloudfront** — CDN + signed downloads *(future)*
+13. **lambda + api_gateway** — serverless surfaces as needed *(future)*
 14. **monitoring** — CloudWatch, Budgets, Cost Anomaly Detection *(future)*
 
 Each module ships with secure defaults (encryption, private-by-default, least
 privilege) and exposes only non-sensitive outputs. Secrets stay in Secrets
 Manager and are referenced by ARN — never written to state outputs.
+
+The **AI document-intelligence platform** (PR3) is layered onto compute rather
+than a standalone module: it adds `bedrock:InvokeModel` permissions to the ECS
+task role (scoped to the configured model / inference-profile ARNs) and the
+`AI_*` runtime env vars. It is feature-flagged by `ai_enabled` (default `false`;
+`true` in staging, using a Bedrock inference profile) and stays fully opt-in —
+no Bedrock grant is created unless AI is enabled with the `bedrock` provider.
 
 ---
 

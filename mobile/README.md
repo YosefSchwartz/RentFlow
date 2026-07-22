@@ -2,7 +2,7 @@
 
 Expo / React Native client for RentFlow — a property management platform for
 small and medium landlords (2–20 properties). The backend REST API lives in
-[`../keynest`](../keynest).
+[`../server`](../server).
 
 ## Tech Stack
 
@@ -17,7 +17,7 @@ small and medium landlords (2–20 properties). The backend REST API lives in
 ## Prerequisites
 
 - Node.js 18+
-- The RentFlow backend running and reachable (see `../keynest`)
+- The RentFlow backend running and reachable (see `../server`)
 - Expo Go on a device, or an iOS Simulator / Android Emulator
 
 ## Quick Start
@@ -82,8 +82,9 @@ RootNavigator (native-stack)
     ├── ExperienceSelection           → choose Properties vs Rentals
     ├── Main (bottom tabs)
     │   ├── Properties  (landlord)    → property list, details, leases, photos,
-    │   │                                documents, maintenance, create/edit,
-    │   │                                lease activation code, create lease
+    │   │                                documents, document detail (AI), receipts,
+    │   │                                maintenance, create/edit, lease
+    │   │                                activation code, create lease
     │   ├── Rentals     (tenant)      → my rentals, join property (redeem code),
     │   │                                tenant home, lease details, documents,
     │   │                                gallery, maintenance, report issue
@@ -99,8 +100,8 @@ RootNavigator (native-stack)
 src/
 ├── api/            # Axios client + one typed module per backend domain
 │   ├── client.ts   # apiClient: base URL from env, auth + 401-refresh interceptors
-│   ├── auth.ts  properties.ts  leases.ts  documents.ts
-│   ├── maintenance.ts  notifications.ts  propertyMedia.ts
+│   ├── auth.ts  properties.ts  leases.ts  documents.ts  folders.ts
+│   ├── receipts.ts  ai.ts  maintenance.ts  notifications.ts  propertyMedia.ts
 │   └── user.ts  googlePlaces.ts (new Google Places API, via fetch)
 ├── hooks/          # React Query hooks wrapping the api modules
 ├── navigation/     # RootNavigator, AuthNavigator, MainNavigator
@@ -150,5 +151,5 @@ on mutation so the UI stays fresh.
 
 ## Related
 
-- Backend API & data model: [`../keynest/README.md`](../keynest/README.md)
+- Backend API & data model: [`../server/README.md`](../server/README.md)
 - Product/domain rules: [`../CLAUDE.md`](../CLAUDE.md)
