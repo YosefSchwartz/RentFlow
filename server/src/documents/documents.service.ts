@@ -84,9 +84,13 @@ export class DocumentsService {
    * only for the quick job-row creation (the provider call runs after the
    * response); errors are swallowed so AI never affects the upload.
    */
-  private async enqueueAi(documentId: string, userId: string): Promise<void> {
+  private async enqueueAi(
+    documentId: string,
+    userId: string,
+    acceptLanguage?: string,
+  ): Promise<void> {
     await this.aiService
-      .enqueue(documentId, userId)
+      .enqueue(documentId, userId, acceptLanguage)
       .catch((err) =>
         this.logger.warn(
           `AI enqueue failed for ${documentId}: ${
@@ -526,6 +530,7 @@ export class DocumentsService {
     userId: string,
     permission?: DocumentPermission,
     folderId?: string,
+    acceptLanguage?: string,
   ): Promise<DocumentResponse> {
     const isOwner = await this.propertiesService.isOwner(propertyId, userId);
     if (!isOwner) {
@@ -565,7 +570,7 @@ export class DocumentsService {
       metadata: { name, category },
     });
 
-    await this.enqueueAi(document.id, userId);
+    await this.enqueueAi(document.id, userId, acceptLanguage);
 
     return this.toDto(document);
   }
@@ -578,6 +583,7 @@ export class DocumentsService {
     userId: string,
     permission?: DocumentPermission,
     folderId?: string,
+    acceptLanguage?: string,
   ): Promise<DocumentResponse> {
     const lease = await this.prisma.lease.findUnique({
       where: { id: leaseId },
@@ -624,7 +630,7 @@ export class DocumentsService {
       metadata: { name, category, leaseId },
     });
 
-    await this.enqueueAi(document.id, userId);
+    await this.enqueueAi(document.id, userId, acceptLanguage);
 
     return this.toDto(document);
   }
@@ -667,6 +673,7 @@ export class DocumentsService {
     file: Express.Multer.File,
     name: string,
     userId: string,
+    acceptLanguage?: string,
   ): Promise<DocumentResponse> {
     const request = await this.getReceiptEligibleRequestOrThrow(
       requestId,
@@ -716,7 +723,7 @@ export class DocumentsService {
       metadata: { name, category: DocumentCategory.RECEIPT, requestId },
     });
 
-    await this.enqueueAi(document.id, userId);
+    await this.enqueueAi(document.id, userId, acceptLanguage);
 
     // Re-read so the response reflects the folder assignment from registerReceipt.
     const filed = await this.prisma.document.findUniqueOrThrow({
@@ -966,6 +973,7 @@ export class DocumentsService {
     documentId: string,
     file: Express.Multer.File,
     userId: string,
+    acceptLanguage?: string,
   ): Promise<DocumentResponse> {
     const document = await this.prisma.document.findUnique({
       where: { id: documentId },
@@ -1045,7 +1053,7 @@ export class DocumentsService {
       document.lease.propertyId,
     );
 
-    await this.enqueueAi(updated.id, userId);
+    await this.enqueueAi(updated.id, userId, acceptLanguage);
 
     return this.toDto(updated);
   }

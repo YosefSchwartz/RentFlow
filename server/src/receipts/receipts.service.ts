@@ -195,6 +195,7 @@ export class ReceiptsService {
     file: Express.Multer.File,
     dto: UploadReceiptDto,
     userId: string,
+    acceptLanguage?: string,
   ): Promise<ReceiptResponse> {
     await this.ensureOwner(propertyId, userId);
 
@@ -237,7 +238,7 @@ export class ReceiptsService {
 
     // Background AI analysis (never blocks the upload).
     await this.aiService
-      .enqueue(document.id, userId)
+      .enqueue(document.id, userId, acceptLanguage)
       .catch(() => undefined);
 
     const receipt = await this.prisma.receipt.findUniqueOrThrow({

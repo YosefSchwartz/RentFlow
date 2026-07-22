@@ -54,11 +54,15 @@ module "networking" {
   tags        = module.foundation.common_tags
   vpc_cidr    = var.vpc_cidr
 
-  # ssmmessages interface endpoint so ECS Exec can reach SSM from the private
-  # app subnets (no NAT). Required by compute's enable_execute_command below.
-  additional_interface_endpoints = {
-    ssmmessages = "ssmmessages"
-  }
+  # Interface endpoints so private app tasks (no NAT) can reach AWS services:
+  #   * ssmmessages   — ECS Exec (compute.enable_execute_command below).
+  #   * bedrock-runtime — AI InvokeModel; only when AI/Bedrock is enabled.
+  # Without the bedrock-runtime endpoint, InvokeModel has no network path and
+  # hangs until the stream is canceled (there is no NAT / internet egress).
+  additional_interface_endpoints = merge(
+    { ssmmessages = "ssmmessages" },
+    var.ai_enabled && var.ai_provider == "bedrock" ? { bedrock_runtime = "bedrock-runtime" } : {},
+  )
 
   # TEMPORARY: internet route on the DB route table for IP-restricted DataGrip
   # access to RDS. Reachability is still gated by the DB SG (/32). Set back to
@@ -114,6 +118,9 @@ module "database" {
   multi_az                     = var.db_multi_az
   backup_retention_period      = var.db_backup_retention_days
   performance_insights_enabled = var.db_performance_insights_enabled
+  # Apply the instance-class resize now (no real users yet) rather than waiting
+  # for the maintenance window. Consider setting back to window-based once live.
+  apply_immediately            = true
 
   master_password = random_password.db_master.result
 

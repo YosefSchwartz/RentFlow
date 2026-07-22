@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Headers,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -27,8 +28,12 @@ export class AiController {
   /** Manual retry — enqueues a fresh analysis job (no scheduling). */
   @Post('retry')
   @HttpCode(HttpStatus.ACCEPTED)
-  retry(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.aiService.retry(id, userId);
+  retry(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Headers('accept-language') acceptLanguage: string,
+  ) {
+    return this.aiService.retry(id, userId, acceptLanguage);
   }
 
   /** The user's category decision becomes official; prediction is retained. */
