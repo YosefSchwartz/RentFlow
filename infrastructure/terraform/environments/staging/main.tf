@@ -257,6 +257,15 @@ module "compute" {
     # then flip to "ses" in a follow-up deploy.
     EMAIL_PROVIDER   = "ses"
     SES_SENDER_EMAIL = module.notifications.sender_email
+
+    # AI document intelligence platform (PR3). Feature-flagged and
+    # provider-agnostic: the app talks to an AIProvider abstraction. Bedrock
+    # authenticates via the task role (no secret). Flip AI_ENABLED to "true"
+    # once Bedrock model access is granted in the account/region.
+    AI_ENABLED    = tostring(var.ai_enabled)
+    AI_PROVIDER   = var.ai_provider
+    AI_MODEL_ID   = var.ai_model_id
+    AI_AWS_REGION = var.aws_region
   }
 
   # Secrets are resolved by the ECS agent at launch (execution role) and never
@@ -278,6 +287,20 @@ module "compute" {
   # Least-privilege SES send access for the task role (OTP emails), scoped to
   # the one verified sender identity.
   ses_identity_arn = module.notifications.ses_identity_arn
+
+  # Least-privilege Bedrock invoke access, scoped to the configured model.
+  # Empty unless AI is enabled with the bedrock provider — AI is fully opt-in.
+  # A cross-region inference profile id (prefixed eu./us./apac./global.) needs
+  # invoke on the profile ARN AND the underlying foundation-model ARNs (any
+  # region the profile routes to); a plain model id needs just the model ARN.
+  bedrock_model_arns = var.ai_enabled && var.ai_provider == "bedrock" ? (
+    can(regex("^(eu|us|apac|global)\\.", var.ai_model_id)) ? [
+      "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/${var.ai_model_id}",
+      "arn:aws:bedrock:*::foundation-model/${replace(var.ai_model_id, "/^(eu|us|apac|global)\\./", "")}",
+    ] : [
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.ai_model_id}",
+    ]
+  ) : []
 
   # Compose DATABASE_URL at container start from the injected parts. The
   # password is URL-encoded via node so any special character is safe. The

@@ -21,6 +21,7 @@ import { PropertiesService } from '../properties/properties.service';
 import { StoredFileService } from '../media/stored-file.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ReceiptsService } from '../receipts/receipts.service';
+import { AiService } from '../ai/ai.service';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { GetUploadUrlDto } from './dto/upload-document.dto';
 import { RequestDocumentDto } from './dto/request-document.dto';
@@ -75,7 +76,25 @@ export class DocumentsService {
     private readonly storedFileService: StoredFileService,
     private readonly notifications: NotificationsService,
     private readonly receiptsService: ReceiptsService,
+    private readonly aiService: AiService,
   ) {}
+
+  /**
+   * Kick off background AI analysis for a freshly-uploaded document. Awaited
+   * only for the quick job-row creation (the provider call runs after the
+   * response); errors are swallowed so AI never affects the upload.
+   */
+  private async enqueueAi(documentId: string, userId: string): Promise<void> {
+    await this.aiService
+      .enqueue(documentId, userId)
+      .catch((err) =>
+        this.logger.warn(
+          `AI enqueue failed for ${documentId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+  }
 
   /** Assemble the public DTO from a document and its (optional) StoredFile. */
   private toDto(doc: DocumentWithFile): DocumentResponse {
@@ -546,6 +565,8 @@ export class DocumentsService {
       metadata: { name, category },
     });
 
+    await this.enqueueAi(document.id, userId);
+
     return this.toDto(document);
   }
 
@@ -602,6 +623,8 @@ export class DocumentsService {
       actorId: userId,
       metadata: { name, category, leaseId },
     });
+
+    await this.enqueueAi(document.id, userId);
 
     return this.toDto(document);
   }
@@ -692,6 +715,8 @@ export class DocumentsService {
       actorId: userId,
       metadata: { name, category: DocumentCategory.RECEIPT, requestId },
     });
+
+    await this.enqueueAi(document.id, userId);
 
     // Re-read so the response reflects the folder assignment from registerReceipt.
     const filed = await this.prisma.document.findUniqueOrThrow({
@@ -1019,6 +1044,8 @@ export class DocumentsService {
       updated.name,
       document.lease.propertyId,
     );
+
+    await this.enqueueAi(updated.id, userId);
 
     return this.toDto(updated);
   }

@@ -107,6 +107,12 @@ variable "ses_identity_arn" {
   default     = null
 }
 
+variable "bedrock_model_arns" {
+  description = "Amazon Bedrock foundation-model ARNs the TASK role may invoke (bedrock:InvokeModel). Empty = no Bedrock access (AI disabled or mock provider)."
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_execute_command" {
   description = "Enable ECS Exec (`aws ecs execute-command`) on the service and grant the TASK role the required SSM Messages permissions. Requires ssmmessages VPC connectivity (an interface endpoint when there is no NAT)."
   type        = bool

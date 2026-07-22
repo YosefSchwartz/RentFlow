@@ -347,6 +347,31 @@
       "MANUAL_UPLOAD": "Manual"
     }
   },
+  "ai": {
+    "title": "AI Analysis",
+    "preview": "Preview",
+    "summary": "AI Summary",
+    "suggestedCategory": "Suggested Category",
+    "currentCategory": "Current category: {{category}}",
+    "accept": "Accept",
+    "replace": "Replace",
+    "replaceTitle": "Choose a category",
+    "categorySaved": "Category updated",
+    "categoryError": "Failed to update category",
+    "extracted": "Extracted Details",
+    "analyzedByAI": "Analyzed by AI",
+    "inProgressHint": "Analysis runs in the background — this updates automatically.",
+    "retry": "Retry analysis",
+    "retryQueued": "Analysis re-queued",
+    "retryError": "Failed to retry",
+    "status": {
+      "NONE": "Not analyzed",
+      "PENDING": "Pending",
+      "PROCESSING": "Processing",
+      "COMPLETED": "Completed",
+      "FAILED": "Failed"
+    }
+  },
   "requiredDocs": {
     "title": "Required Documents",
     "requestButton": "Request Document",

@@ -19,8 +19,9 @@ import {
   Appbar,
   Dialog,
 } from 'react-native-paper';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
@@ -54,6 +55,7 @@ import {
 } from '../../types';
 
 type RouteType = RouteProp<PropertiesStackParamList, 'PropertyDocuments'>;
+type NavProp = NativeStackNavigationProp<PropertiesStackParamList>;
 
 // Allowed file types for document upload
 const ALLOWED_FILE_TYPES = [
@@ -141,6 +143,7 @@ const folderDisplayName = (
 const PropertyDocumentsScreen: React.FC = () => {
   const theme = useTheme();
   const route = useRoute<RouteType>();
+  const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
   const { propertyId } = route.params;
 
@@ -604,7 +607,14 @@ const PropertyDocumentsScreen: React.FC = () => {
                   mode="outlined"
                 >
                   <Pressable
-                    onPress={() => (selectionMode ? toggleSelected(doc.id) : setPreviewDoc(doc))}
+                    onPress={() =>
+                      selectionMode
+                        ? toggleSelected(doc.id)
+                        : navigation.navigate('DocumentDetail', {
+                            documentId: doc.id,
+                            propertyId,
+                          })
+                    }
                     onLongPress={() => !selectionMode && enterSelection(doc.id)}
                   >
                     <Card.Content style={styles.documentRow}>

@@ -63,6 +63,27 @@ variable "backend_image_tag" {
   type = string
 }
 
+# --- AI document intelligence platform (PR3) ---
+# Feature flag + provider selection + model. Bedrock needs no secret (task-role
+# IAM). Kept off by default until Bedrock model access is granted in-account.
+variable "ai_enabled" {
+  description = "Enable background AI document analysis."
+  type        = bool
+  default     = false
+}
+
+variable "ai_provider" {
+  description = "AI provider: \"bedrock\" or \"mock\"."
+  type        = string
+  default     = "bedrock"
+}
+
+variable "ai_model_id" {
+  description = "Bedrock model or cross-region inference-profile id (e.g. eu.anthropic.*) used when ai_provider = bedrock."
+  type        = string
+  default     = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+}
+
 # NOTE: the JWT signing secret is no longer a tfvar. It is generated in
 # main.tf (random_password) and stored in Secrets Manager, then injected into
 # the ECS task via the `secrets` block — never committed, never in a task-def

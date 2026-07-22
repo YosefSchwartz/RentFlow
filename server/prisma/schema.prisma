@@ -74,6 +74,21 @@ enum DocumentAuditAction {
   PERMISSION_CHANGE
   PREVIEW
   DOWNLOAD
+  // AI platform events (PR3)
+  AI_REQUESTED
+  AI_COMPLETED
+  AI_FAILED
+  AI_SUGGESTION_ACCEPTED
+  AI_CATEGORY_CHANGED
+  AI_RETRIED
+}
+
+// Lifecycle of an asynchronous AI processing job.
+enum AiJobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 // Where a receipt originated. Extensible: future sources (e.g. EMAIL_IMPORT,
@@ -159,6 +174,7 @@ model User {
   uploadedDocuments   Document[]
   createdFolders      Folder[]
   documentAuditLogs   DocumentAuditLog[]
+  aiApprovals         AiClassification[]   @relation("AiApprovals")
   sessions            Session[]
   notifications       Notification[]
 
@@ -325,6 +341,13 @@ model Document {
   // so the Document model itself stays unchanged — see the Receipt model.
   receipt Receipt?
 
+  // AI platform (PR3). All sibling records — the Document model is untouched by
+  // AI logic; results attach here.
+  aiJobs            AiJob[]
+  aiSummary         AiSummary?
+  aiClassification  AiClassification?
+  aiExtractedFields AiExtractedField[]
+
   @@index([propertyId])
   @@index([leaseId])
   @@index([maintenanceRequestId])
@@ -362,6 +385,90 @@ model Receipt {
   @@index([source])
   @@index([relatedLeaseId])
   @@index([relatedMaintenanceId])
+}
+
+// ============================================================================
+// AI platform (PR3)
+// ============================================================================
+// Provider/model are stored as strings (not enums) so new providers plug in
+// without a schema change. Business services talk to the AIProvider
+// abstraction, never to a specific provider.
+
+// One asynchronous analysis attempt for a document. Multiple rows per document
+// accumulate over reprocessing/retries; the latest drives the UI status.
+model AiJob {
+  id           String      @id @default(cuid())
+  provider     String
+  model        String
+  status       AiJobStatus @default(QUEUED)
+  attempts     Int         @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorMessage String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([status])
+}
+
+// One concise human-readable summary per document (latest successful analysis).
+model AiSummary {
+  id        String   @id @default(cuid())
+  text      String
+  provider  String
+  model     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documentId String   @unique
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+// AI category prediction + the user's approval. The predicted* fields are
+// written by AI; the approved* fields are written only by the user. AI must
+// NEVER overwrite approved* — the user's decision always wins, and the original
+// prediction is retained for analytics.
+model AiClassification {
+  id                String            @id @default(cuid())
+  predictedCategory DocumentCategory
+  confidence        Float
+  approvedCategory  DocumentCategory?
+  approvedAt        DateTime?
+  provider          String
+  model             String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  documentId String   @unique
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  approvedById String?
+  approvedBy   User?   @relation("AiApprovals", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([approvedById])
+}
+
+// Normalized AI-extracted metadata: one row per field. `key` is a free string
+// (e.g. "supplier", "invoiceNumber", "amount") so new fields need no migration.
+// Typed value columns keep it query/search-ready without JSON blobs.
+model AiExtractedField {
+  id          String    @id @default(cuid())
+  key         String
+  valueText   String?
+  valueNumber Decimal?  @db.Decimal(14, 2)
+  valueDate   DateTime?
+  confidence  Float?
+  createdAt   DateTime  @default(now())
+
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([key])
 }
 
 // A folder within a property's document tree. Folders nest via `parentId`.

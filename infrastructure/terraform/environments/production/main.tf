@@ -135,7 +135,7 @@ resource "aws_secretsmanager_secret" "jwt" {
   name        = "${module.foundation.name_prefix}-jwt-secret"
   description = "Backend JWT signing secret (HS256 access tokens)."
   tags        = module.foundation.common_tags
-} 
+}
 
 resource "aws_secretsmanager_secret_version" "jwt" {
   secret_id     = aws_secretsmanager_secret.jwt.id
@@ -185,6 +185,13 @@ module "compute" {
     DB_PORT     = tostring(module.database.db_port)
     DB_NAME     = module.database.db_name
     DB_USERNAME = module.database.master_username
+
+    # AI document intelligence platform (PR3). Provider-agnostic + feature
+    # flagged; Bedrock authenticates via the task role (no secret).
+    AI_ENABLED    = tostring(var.ai_enabled)
+    AI_PROVIDER   = var.ai_provider
+    AI_MODEL_ID   = var.ai_model_id
+    AI_AWS_REGION = var.aws_region
   }
 
   # Resolved by the ECS agent at launch (execution role); never in state/task def.
@@ -196,6 +203,20 @@ module "compute" {
   app_secret_arns = [aws_secretsmanager_secret.jwt.arn]
 
   s3_bucket_arn = module.storage.bucket_arn
+
+  # Least-privilege Bedrock invoke access, scoped to the configured model.
+  # Empty unless AI is enabled with the bedrock provider — AI is fully opt-in.
+  # A cross-region inference profile id (prefixed eu./us./apac./global.) needs
+  # invoke on the profile ARN AND the underlying foundation-model ARNs (any
+  # region the profile routes to); a plain model id needs just the model ARN.
+  bedrock_model_arns = var.ai_enabled && var.ai_provider == "bedrock" ? (
+    can(regex("^(eu|us|apac|global)\\.", var.ai_model_id)) ? [
+      "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/${var.ai_model_id}",
+      "arn:aws:bedrock:*::foundation-model/${replace(var.ai_model_id, "/^(eu|us|apac|global)\\./", "")}",
+    ] : [
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.ai_model_id}",
+    ]
+  ) : []
 
   container_command = [
     "/bin/sh", "-c",

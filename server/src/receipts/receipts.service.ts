@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { PropertiesService } from '../properties/properties.service';
 import { StoredFileService } from '../media/stored-file.service';
+import { AiService } from '../ai/ai.service';
 import { UploadReceiptDto } from './dto/upload-receipt.dto';
 
 /** Business-facing receipt (metadata + the underlying document's file facts). */
@@ -61,6 +62,7 @@ export class ReceiptsService {
     private readonly prisma: PrismaService,
     private readonly propertiesService: PropertiesService,
     private readonly storedFileService: StoredFileService,
+    private readonly aiService: AiService,
   ) {}
 
   private logAudit(
@@ -232,6 +234,11 @@ export class ReceiptsService {
       actorId: userId,
       metadata: { name: document.name, category: DocumentCategory.RECEIPT },
     });
+
+    // Background AI analysis (never blocks the upload).
+    await this.aiService
+      .enqueue(document.id, userId)
+      .catch(() => undefined);
 
     const receipt = await this.prisma.receipt.findUniqueOrThrow({
       where: { documentId: document.id },

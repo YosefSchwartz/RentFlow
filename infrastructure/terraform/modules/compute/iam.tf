@@ -137,6 +137,32 @@ resource "aws_iam_role_policy" "task_ses" {
   policy = data.aws_iam_policy_document.task_ses[0].json
 }
 
+# AI (Amazon Bedrock): the app invokes foundation models with the TASK role's
+# identity (no static credentials). Scoped to exactly the model ARNs passed in
+# — no wildcards — same least-privilege shape as task_s3/task_ses above. Only
+# created when at least one model ARN is configured, so AI stays fully opt-in.
+data "aws_iam_policy_document" "task_bedrock" {
+  count = length(var.bedrock_model_arns) > 0 ? 1 : 0
+
+  statement {
+    sid    = "AppInvokeBedrock"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    resources = var.bedrock_model_arns
+  }
+}
+
+resource "aws_iam_role_policy" "task_bedrock" {
+  count = length(var.bedrock_model_arns) > 0 ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-bedrock"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_bedrock[0].json
+}
+
 # ECS Exec: the SSM agent inside the task opens SSM Messages control/data
 # channels using the TASK role's identity, so these actions belong on the task
 # role (NOT the execution role). ssmmessages has no resource-level permissions,

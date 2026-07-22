@@ -4,5 +4,6 @@ export * from './useLeases';
 export * from './useDocuments';
 export * from './useFolders';
 export * from './useReceipts';
+export * from './useAi';
 export * from './useMaintenance';
 export * from './useNotifications';
