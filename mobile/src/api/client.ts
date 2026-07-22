@@ -5,6 +5,7 @@ import {
   storeTokens,
   clearTokens,
 } from '../services/auth';
+import i18n from '../localization/i18n';
 
 // API Base URL - change this to your actual backend URL
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -42,6 +43,12 @@ apiClient.interceptors.request.use(
     const token = await getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Advertise the app's current UI language so the backend can localize
+    // (e.g. AI writes document summaries in the user's language).
+    if (config.headers && i18n.language) {
+      config.headers['Accept-Language'] = i18n.language;
     }
 
     // Log request in development

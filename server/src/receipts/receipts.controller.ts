@@ -7,6 +7,7 @@ import {
   Query,
   Res,
   Header,
+  Headers,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -47,8 +48,15 @@ export class ReceiptsController {
     file: Express.Multer.File,
     @Body() dto: UploadReceiptDto,
     @CurrentUser('id') userId: string,
+    @Headers('accept-language') acceptLanguage: string,
   ) {
-    return this.receiptsService.uploadManual(propertyId, file, dto, userId);
+    return this.receiptsService.uploadManual(
+      propertyId,
+      file,
+      dto,
+      userId,
+      acceptLanguage,
+    );
   }
 
   /** List receipts, optionally filtered by tax year. */

@@ -53,6 +53,13 @@ module "networking" {
   name_prefix = module.foundation.name_prefix
   tags        = module.foundation.common_tags
   vpc_cidr    = var.vpc_cidr
+
+  # bedrock-runtime interface endpoint for AI InvokeModel from the private app
+  # subnets (no NAT). Only created when AI/Bedrock is enabled, so this is a
+  # no-op until `ai_enabled = true`.
+  additional_interface_endpoints = (
+    var.ai_enabled && var.ai_provider == "bedrock" ? { bedrock_runtime = "bedrock-runtime" } : {}
+  )
 }
 
 # Layer 4 — Security baseline. VPC flow logs → CloudWatch (least-privilege role).

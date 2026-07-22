@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Headers,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -145,12 +146,14 @@ export class MaintenanceController {
     )
     file: Express.Multer.File,
     @CurrentUser('id') userId: string,
+    @Headers('accept-language') acceptLanguage: string,
   ) {
     return this.documentsService.uploadMaintenanceReceipt(
       id,
       file,
       name || file.originalname,
       userId,
+      acceptLanguage,
     );
   }
 

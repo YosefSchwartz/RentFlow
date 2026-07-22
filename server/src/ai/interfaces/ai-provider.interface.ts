@@ -16,6 +16,18 @@ export interface AiAnalysisRequest {
   text?: string | null;
   /** Signed URL to the file, for providers that fetch/OCR it (future). */
   fileUrl?: string | null;
+  /**
+   * Base64-encoded file bytes for multimodal (vision / PDF) analysis. Set only
+   * for supported types within the size limit (see AiService); null otherwise,
+   * in which case a provider falls back to filename-only analysis.
+   */
+  fileBase64?: string | null;
+  /**
+   * Human language the summary (and human-readable field values) should be
+   * written in — the app's UI language, e.g. "English" or "Hebrew". The model
+   * reads documents in any language regardless; this controls the OUTPUT.
+   */
+  outputLanguage?: string | null;
 }
 
 export interface AiClassificationResult {

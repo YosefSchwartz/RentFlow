@@ -28,7 +28,18 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # openssl for Prisma at runtime; dumb-init for correct PID 1 signal handling.
-RUN apk add --no-cache openssl dumb-init
+# libreoffice (headless) converts Office docs (docx/doc/xls/xlsx) to PDF for AI
+# analysis; the Noto/Hebrew fonts ensure Hebrew content renders correctly in the
+# generated PDF. LibreOffice writes its profile to $HOME, so give the non-root
+# user a writable home.
+RUN apk add --no-cache \
+    openssl \
+    dumb-init \
+    libreoffice \
+    font-noto \
+    font-noto-hebrew \
+    ttf-freefont
+ENV HOME=/tmp
 
 # Install production dependencies only.
 COPY package*.json ./

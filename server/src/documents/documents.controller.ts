@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Headers,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -171,6 +172,7 @@ export class DocumentsController {
     @Body('permission') permission: DocumentPermission | undefined,
     @Body('folderId') folderId: string | undefined,
     @CurrentUser('id') userId: string,
+    @Headers('accept-language') acceptLanguage: string,
   ) {
     return this.documentsService.uploadDocument(
       propertyId,
@@ -180,6 +182,7 @@ export class DocumentsController {
       userId,
       permission,
       folderId,
+      acceptLanguage,
     );
   }
 
@@ -204,6 +207,7 @@ export class DocumentsController {
     @Body('permission') permission: DocumentPermission | undefined,
     @Body('folderId') folderId: string | undefined,
     @CurrentUser('id') userId: string,
+    @Headers('accept-language') acceptLanguage: string,
   ) {
     return this.documentsService.uploadLeaseDocument(
       leaseId,
@@ -213,6 +217,7 @@ export class DocumentsController {
       userId,
       permission,
       folderId,
+      acceptLanguage,
     );
   }
 
@@ -249,8 +254,9 @@ export class DocumentsController {
     )
     file: Express.Multer.File,
     @CurrentUser('id') userId: string,
+    @Headers('accept-language') acceptLanguage: string,
   ) {
-    return this.documentsService.fulfillRequest(id, file, userId);
+    return this.documentsService.fulfillRequest(id, file, userId, acceptLanguage);
   }
 
   /**
