@@ -347,6 +347,31 @@
       "MANUAL_UPLOAD": "ידני"
     }
   },
+  "ai": {
+    "title": "ניתוח AI",
+    "preview": "תצוגה מקדימה",
+    "summary": "סיכום AI",
+    "suggestedCategory": "קטגוריה מוצעת",
+    "currentCategory": "קטגוריה נוכחית: {{category}}",
+    "accept": "אישור",
+    "replace": "החלפה",
+    "replaceTitle": "בחירת קטגוריה",
+    "categorySaved": "הקטגוריה עודכנה",
+    "categoryError": "עדכון הקטגוריה נכשל",
+    "extracted": "פרטים שחולצו",
+    "analyzedByAI": "נותח על ידי AI",
+    "inProgressHint": "הניתוח מתבצע ברקע — המסך יתעדכן אוטומטית.",
+    "retry": "ניתוח מחדש",
+    "retryQueued": "הניתוח נשלח מחדש",
+    "retryError": "הניסיון מחדש נכשל",
+    "status": {
+      "NONE": "לא נותח",
+      "PENDING": "ממתין",
+      "PROCESSING": "מעבד",
+      "COMPLETED": "הושלם",
+      "FAILED": "נכשל"
+    }
+  },
   "requiredDocs": {
     "title": "מסמכים נדרשים",
     "requestButton": "בקש מסמך",

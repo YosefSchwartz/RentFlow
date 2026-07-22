@@ -144,6 +144,39 @@ export interface Document {
   };
 }
 
+// --- AI platform (PR3) ---
+export type AiJobStatus = 'NONE' | 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface AiExtractedField {
+  key: string;
+  valueText?: string | null;
+  valueNumber?: number | null;
+  valueDate?: string | null;
+  confidence?: number | null;
+}
+
+export interface DocumentAi {
+  documentId: string;
+  status: AiJobStatus;
+  analyzedByAI: boolean;
+  effectiveCategory: DocumentCategory;
+  summary: string | null;
+  classification: {
+    predictedCategory: DocumentCategory;
+    confidence: number;
+    approvedCategory: DocumentCategory | null;
+    approvedAt: string | null;
+  } | null;
+  fields: AiExtractedField[];
+  latestJob: {
+    id: string;
+    status: string;
+    attempts: number;
+    errorMessage: string | null;
+    completedAt: string | null;
+  } | null;
+}
+
 // Where a receipt came from (mirrors the backend enum).
 export type ReceiptSource = 'MAINTENANCE' | 'MANUAL_UPLOAD';
 
@@ -439,6 +472,7 @@ export type PropertiesStackParamList = {
   PropertyLeases: { propertyId: string };
   PropertyPhotos: { propertyId: string };
   PropertyDocuments: { propertyId: string };
+  DocumentDetail: { documentId: string; propertyId: string };
   PropertyReceipts: { propertyId: string };
   PropertyMaintenance: { propertyId: string };
   CreateProperty: undefined;

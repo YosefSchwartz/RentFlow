@@ -36,6 +36,7 @@
     "legal:deploy": "bash scripts/deploy-legal-localstack.sh"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1092.0",
     "@aws-sdk/client-s3": "^3.500.0",
     "@aws-sdk/client-ses": "^3.500.0",
     "@aws-sdk/s3-request-presigner": "^3.500.0",

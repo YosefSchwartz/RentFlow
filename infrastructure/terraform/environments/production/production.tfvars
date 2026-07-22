@@ -26,3 +26,9 @@ backend_memory        = 1024
 backend_desired_count = 3
 backend_min_capacity  = 3
 backend_max_capacity  = 12
+
+# AI platform (PR3). Off until Bedrock model access is granted for this account
+# / region (a Bedrock console account setting, not IaC).
+ai_enabled  = false
+ai_provider = "bedrock"
+ai_model_id = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
