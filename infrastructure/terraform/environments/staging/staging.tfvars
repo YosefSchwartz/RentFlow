@@ -34,6 +34,13 @@ backend_max_capacity  = 8
 db_instance_class               = "db.t4g.micro"
 db_performance_insights_enabled = true
 
+# --- Email / DNS ---
+# rent-flow.dev is registered via Route53 Domains (Jul 2026) for the SES
+# domain identity (DKIM) and the landing page. The sender address needs no
+# click-verification — the domain identity covers every address under it.
+ses_domain       = "rent-flow.dev"
+ses_sender_email = "noreply@rent-flow.dev"
+
 # --- Cost governance ---
 # Post-FinOps-review run-rate is ~$70-90/mo; $100 gives alerting headroom
 # without drowning real regressions. The email gets a one-time AWS

@@ -21,9 +21,9 @@ import { useAuth } from '../../store/AuthContext';
 import { userApi } from '../../api/user';
 import type { SupportedLanguage } from '../../localization/i18n';
 
-// Public legal pages (host the static pages here in production).
-const PRIVACY_URL = 'https://keynest.app/privacy-policy';
-const TERMS_URL = 'https://keynest.app/terms-of-service';
+// Public legal pages — served by GitHub Pages from /docs on rent-flow.dev.
+const PRIVACY_URL = 'https://rent-flow.dev/privacy-policy.html';
+const TERMS_URL = 'https://rent-flow.dev/terms-of-service.html';
 
 const SettingsScreen: React.FC = () => {
   const theme = useTheme();
