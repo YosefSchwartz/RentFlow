@@ -1,8 +1,8 @@
 # Notifications module — outputs.
 
 output "ses_identity_arn" {
-  description = "SES email identity ARN (grant the ECS task role ses:SendEmail scoped to this)."
-  value       = aws_ses_email_identity.sender.arn
+  description = "SES identity ARN — the domain identity when ses_domain is set, else the email identity (grant the ECS task role ses:SendEmail scoped to this)."
+  value       = var.ses_domain != null ? aws_sesv2_email_identity.domain[0].arn : aws_ses_email_identity.sender[0].arn
 }
 
 output "sender_email" {

@@ -114,13 +114,16 @@ variable "backend_max_capacity" {
   default = 6
 }
 
-# --- Notifications (Layer 9) ---
-# Single verified SES sender identity. No default: supply at apply time, e.g.
-#   tofu apply -var-file=environments/staging/staging.tfvars -var "ses_sender_email=noreply@example.com"
-# AWS emails a confirmation link to this address that must be clicked once —
-# see modules/notifications/README.md.
+# --- Notifications (Layer 9) / DNS (Layer 13) ---
+# Sender address + the DKIM-verified SES domain identity it lives under.
+# Values in staging.tfvars (no more -var at apply time).
 variable "ses_sender_email" {
   type = string
+}
+
+variable "ses_domain" {
+  description = "Registered domain used for the SES domain identity and the public hosted zone (e.g. rent-flow.dev)."
+  type        = string
 }
 
 # --- Monitoring / cost governance (Layer 12) ---

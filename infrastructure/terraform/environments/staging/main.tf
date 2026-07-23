@@ -192,15 +192,39 @@ resource "aws_secretsmanager_secret_version" "otp" {
   secret_string = random_password.otp_secret.result
 }
 
-# Layer 9 — Notifications. SES for transactional OTP email. No dependency on
-# compute; compute depends on its ses_identity_arn output below (same shape
-# as the existing compute -> container_registry dependency).
+# Layer 13 — DNS. Public hosted zone for the registered domain. The zone was
+# auto-created by Route53 Domains at registration and IMPORTED here (see
+# modules/route53 header). Hosts the SES DKIM/SPF/DMARC records (notifications
+# below) and the GitHub Pages landing site (apex + www).
+module "dns" {
+  source = "../../modules/route53"
+
+  name_prefix = module.foundation.name_prefix
+  tags        = module.foundation.common_tags
+
+  domain_name           = var.ses_domain
+  enable_github_pages   = true
+  github_pages_hostname = "yosefschwartz.github.io"
+}
+
+# Layer 9 — Notifications. SES for transactional OTP email, sent from the
+# DKIM-verified domain identity (rent-flow.dev). No dependency on compute;
+# compute depends on its ses_identity_arn output below (same shape as the
+# existing compute -> container_registry dependency).
 module "notifications" {
   source = "../../modules/notifications"
 
   name_prefix      = module.foundation.name_prefix
   tags             = module.foundation.common_tags
   ses_sender_email = var.ses_sender_email
+
+  # Domain-identity mode: DKIM/SPF/DMARC records go into the zone above.
+  ses_domain      = var.ses_domain
+  route53_zone_id = module.dns.zone_id
+
+  # Bounce/complaint SNS emails must land in a REAL mailbox (the default —
+  # the sender address — would be the unmonitored noreply@).
+  bounce_complaint_notification_email = var.billing_alert_email
 }
 
 # Layer 10 — Container registry. Private ECR repo for the backend image.

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RentFlow — Support</title>
+  <style>
+    :root { --fg:#1a1a2e; --muted:#5a5a72; --bg:#f6f7fb; --card:#fff; --accent:#3b5bdb; --border:#e4e6ef; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; line-height:1.6; }
+    .wrap { max-width:760px; margin:0 auto; padding:24px 18px 64px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .brand { font-weight:700; font-size:20px; color:var(--accent); }
+    .toggle button { border:1px solid var(--border); background:var(--card); color:var(--fg);
+      padding:6px 12px; border-radius:999px; cursor:pointer; font-size:14px; }
+    .toggle button.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; margin-top:16px; }
+    h1 { font-size:26px; margin:8px 0 4px; } h2 { font-size:18px; margin:22px 0 6px; }
+    .muted { color:var(--muted); font-size:14px; } a { color:var(--accent); }
+    .contact { display:inline-block; margin-top:8px; background:var(--accent); color:#fff; padding:10px 18px;
+      border-radius:10px; text-decoration:none; font-weight:600; }
+    footer { margin-top:28px; text-align:center; }
+    [dir="rtl"] { text-align:right; } [hidden] { display:none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">RentFlow</div>
+      <div class="toggle">
+        <button id="btn-en" class="active" onclick="setLang('en')">English</button>
+        <button id="btn-he" onclick="setLang('he')">עברית</button>
+      </div>
+    </header>
+
+    <main id="content-en" class="card" dir="ltr">
+      <h1>Support</h1>
+      <p>Need help with RentFlow? We're here for you.</p>
+      <a class="contact" href="mailto:yosef.sh05@gmail.com">Email yosef.sh05@gmail.com</a>
+      <p class="muted">We typically respond within 1–2 business days.</p>
+
+      <h2>Frequently asked questions</h2>
+      <p><strong>How do I add a tenant to a lease?</strong><br/>
+      Create the lease for your property, then share its activation code with your tenant. They enter it under "Rentals → Activate a Lease" to connect.</p>
+      <p><strong>I'm a tenant — how do I join?</strong><br/>
+      Ask your landlord for an activation code, open the Rentals tab, tap "Activate a Lease", and enter the code.</p>
+      <p><strong>How do I upload documents or photos?</strong><br/>
+      Open a property, go to the Documents or Photos tab, and tap upload. You choose whether a document is private or shared with your tenant.</p>
+      <p><strong>How do I change the language?</strong><br/>
+      Go to Profile → Settings → Language. RentFlow supports English and Hebrew (with full right-to-left layout).</p>
+      <p><strong>How do I delete my account?</strong><br/>
+      Email us at yosef.sh05@gmail.com and we will delete your account and associated data.</p>
+
+      <h2>Legal</h2>
+      <p><a href="privacy-policy.html">Privacy Policy</a> · <a href="terms-of-service.html">Terms of Service</a></p>
+    </main>
+
+    <main id="content-he" class="card" dir="rtl" hidden>
+      <h1>תמיכה</h1>
+      <p>צריכים עזרה עם RentFlow? אנחנו כאן בשבילכם.</p>
+      <a class="contact" href="mailto:yosef.sh05@gmail.com">שלחו אימייל ל-yosef.sh05@gmail.com</a>
+      <p class="muted">אנו בדרך כלל משיבים תוך 1–2 ימי עסקים.</p>
+
+      <h2>שאלות נפוצות</h2>
+      <p><strong>איך מוסיפים דייר לחוזה?</strong><br/>
+      צרו את החוזה לנכס, ואז שתפו את קוד ההפעלה שלו עם הדייר. הוא מזין אותו תחת "השכרות → הפעלת חוזה" כדי להתחבר.</p>
+      <p><strong>אני דייר — איך מצטרפים?</strong><br/>
+      בקשו מבעל הנכס קוד הפעלה, פתחו את לשונית ההשכרות, הקישו "הפעלת חוזה" והזינו את הקוד.</p>
+      <p><strong>איך מעלים מסמכים או תמונות?</strong><br/>
+      פתחו נכס, עברו ללשונית מסמכים או תמונות, והקישו על העלאה. אתם בוחרים אם מסמך פרטי או משותף עם הדייר.</p>
+      <p><strong>איך משנים שפה?</strong><br/>
+      עברו לפרופיל ← הגדרות ← שפה. RentFlow תומכת באנגלית ובעברית (כולל פריסה מימין לשמאל).</p>
+      <p><strong>איך מוחקים חשבון?</strong><br/>
+      שלחו לנו אימייל לכתובת yosef.sh05@gmail.com ונמחק את החשבון והנתונים המשויכים אליו.</p>
+
+      <h2>משפטי</h2>
+      <p><a href="privacy-policy.html">מדיניות פרטיות</a> · <a href="terms-of-service.html">תנאי שימוש</a></p>
+    </main>
+
+    <footer class="muted">© 2026 RentFlow</footer>
+  </div>
+
+  <script>
+    function setLang(lang) {
+      var en = lang === 'en';
+      document.getElementById('content-en').hidden = !en;
+      document.getElementById('content-he').hidden = en;
+      document.getElementById('btn-en').classList.toggle('active', en);
+      document.getElementById('btn-he').classList.toggle('active', !en);
+      document.documentElement.lang = lang;
+      document.documentElement.dir = en ? 'ltr' : 'rtl';
+    }
+    if ((navigator.language || '').toLowerCase().startsWith('he')) setLang('he');
+  </script>
+</body>
+</html>

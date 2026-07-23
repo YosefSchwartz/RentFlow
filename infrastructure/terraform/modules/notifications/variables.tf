@@ -10,14 +10,31 @@ variable "tags" {
   type        = map(string)
 }
 
-# No default: must be supplied at apply time, e.g.
-#   tofu apply -var-file=environments/staging/staging.tfvars -var "ses_sender_email=noreply@example.com"
-# AWS emails a confirmation link to this address that a human must click once
-# before SES will send from it — the one manual, non-Terraform step in this
-# module.
+# With ses_domain set, this must be an address UNDER that domain (e.g.
+# noreply@rent-flow.dev) — the domain identity covers it, no click needed.
+# Without ses_domain, AWS emails a confirmation link to this address that a
+# human must click once before SES will send from it.
 variable "ses_sender_email" {
-  description = "Single verified SES sender identity email address."
+  description = "SES sender address. Under ses_domain when that is set; otherwise its own click-verified email identity."
   type        = string
+}
+
+variable "ses_domain" {
+  description = "Domain to verify as a DKIM-signed SES DOMAIN identity (e.g. rent-flow.dev). Null = legacy single-email-identity mode. Requires route53_zone_id for the DKIM/SPF/DMARC records."
+  type        = string
+  default     = null
+}
+
+variable "route53_zone_id" {
+  description = "Hosted zone ID for the ses_domain DNS records (DKIM CNAMEs, MAIL FROM MX/SPF, DMARC). Required when ses_domain is set."
+  type        = string
+  default     = null
+}
+
+variable "mail_from_subdomain" {
+  description = "Subdomain used as the SES custom MAIL FROM (envelope sender), e.g. \"mail\" -> mail.rent-flow.dev."
+  type        = string
+  default     = "mail"
 }
 
 # Where bounce/complaint SNS notifications land. Defaults to ses_sender_email
