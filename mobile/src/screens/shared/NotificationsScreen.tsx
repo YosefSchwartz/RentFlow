@@ -40,6 +40,8 @@ const NotificationsScreen: React.FC = () => {
         return 'file-document-check';
       case 'LEASE_REJECTED':
         return 'file-document-remove';
+      case 'LEASE_TERMS_UPDATED':
+        return 'cash-sync';
       case 'MAINTENANCE_CREATED':
         return 'wrench';
       case 'MAINTENANCE_UPDATED':
@@ -61,6 +63,8 @@ const NotificationsScreen: React.FC = () => {
         return theme.colors.secondary;
       case 'LEASE_REJECTED':
         return theme.colors.error;
+      case 'LEASE_TERMS_UPDATED':
+        return theme.colors.primary;
       case 'MAINTENANCE_CREATED':
       case 'MAINTENANCE_UPDATED':
         return theme.colors.primary;

@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useMyLeases } from '../../hooks/useLeases';
-import { formatCurrency } from '../../utils';
+import { formatMoney, getCurrentLeaseRent } from '../../utils';
 import type { RentalsStackParamList, Lease, LeaseStatus } from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<RentalsStackParamList>;
@@ -54,7 +54,10 @@ const MyRentalsScreen: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const renderLeaseCard = (lease: Lease) => (
+  const renderLeaseCard = (lease: Lease) => {
+    // Rent of the pricing period in effect today (legacy-rent fallback).
+    const rent = getCurrentLeaseRent(lease);
+    return (
     <Pressable key={lease.id} onPress={() => navigation.navigate('TenantHome', { leaseId: lease.id })}>
       <Card style={styles.leaseCard} mode="outlined">
         <Card.Content>
@@ -96,11 +99,11 @@ const MyRentalsScreen: React.FC = () => {
                 </Text>
               </View>
             )}
-            {lease.monthlyRent && (
+            {rent && (
               <View style={styles.detailRow}>
                 <Icon name="cash" size={16} color={theme.colors.outline} />
                 <Text variant="bodySmall" style={styles.detailText}>
-                  {t('rentals.rent')}: {formatCurrency(lease.monthlyRent)}{t('rentals.perMonth')}
+                  {t('rentals.rent')}: {formatMoney(rent.amount, rent.currency)}{t('rentals.perMonth')}
                 </Text>
               </View>
             )}
@@ -115,7 +118,8 @@ const MyRentalsScreen: React.FC = () => {
         </Card.Content>
       </Card>
     </Pressable>
-  );
+    );
+  };
 
   if (isLoading) {
     return (

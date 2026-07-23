@@ -115,6 +115,7 @@ enum NotificationType {
   LEASE_PENDING
   LEASE_APPROVED
   LEASE_REJECTED
+  LEASE_TERMS_UPDATED
   MAINTENANCE_CREATED
   MAINTENANCE_UPDATED
   MAINTENANCE_RESOLVED
@@ -266,15 +267,19 @@ model Property {
 }
 
 model Lease {
-  id            String      @id @default(cuid())
-  status        LeaseStatus @default(PENDING)
-  startDate     DateTime
-  endDate       DateTime?
-  monthlyRent   Decimal?    @db.Decimal(10, 2)
-  depositAmount Decimal?    @db.Decimal(10, 2)
+  id        String      @id @default(cuid())
+  status    LeaseStatus @default(PENDING)
+  startDate DateTime
+  endDate   DateTime?
+  // LEGACY — kept for backward compatibility only. Pricing lives in LeaseTerm;
+  // this column mirrors the first term's rent so pre-existing readers keep
+  // working. New code must read pricing through LeasePricingService, never
+  // this column directly.
+  monthlyRent   Decimal?  @db.Decimal(10, 2)
+  depositAmount Decimal?  @db.Decimal(10, 2)
   notes         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Per-lease activation code. The landlord creates the lease (tenant-less) and
   // shares this code; a tenant redeems it to become the lease's tenant.
@@ -288,14 +293,45 @@ model Lease {
   // Nullable: a lease is the landlord's record and may be "Unassigned" until a
   // tenant redeems the activation code.
   tenantId       String?
-  tenant         User?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant         User?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   documents      Document[]
+  // The lease's pricing schedule (see LeaseTerm).
+  leaseTerms     LeaseTerm[]
   // Receipt metadata attributed to this lease (see Receipt).
   receiptRecords Receipt[]
 
   @@index([propertyId])
   @@index([tenantId])
   @@index([status])
+}
+
+// One pricing period of a lease's rent schedule. A lease's terms are
+// contiguous, non-overlapping, sorted by startDate, and together cover the
+// entire lease duration (enforced in LeasePricingService — the single home for
+// all pricing logic; the DB only guarantees uniqueness of displayOrder).
+// endDate is null only on the final term of an open-ended lease (mirrors
+// Lease.endDate).
+//
+// Future-ready (no redesign needed): recurring charges (parking, storage,
+// internet, municipal tax, …) attach as a child table keyed by leaseTermId;
+// CPI linkage, discounts and pricing type become additional columns here.
+model LeaseTerm {
+  id           String    @id @default(cuid())
+  startDate    DateTime
+  endDate      DateTime? // null = open-ended (only allowed on the last term)
+  monthlyRent  Decimal   @db.Decimal(10, 2)
+  currency     String    @default("ILS") // ISO 4217 code
+  notes        String?
+  displayOrder Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  leaseId String
+  lease   Lease  @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@unique([leaseId, displayOrder])
+  @@index([leaseId])
+  @@index([leaseId, startDate])
 }
 
 model Document {

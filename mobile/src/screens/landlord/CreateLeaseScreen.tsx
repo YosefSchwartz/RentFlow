@@ -14,6 +14,8 @@ import {
   HelperText,
   Portal,
   Modal,
+  Card,
+  IconButton,
 } from 'react-native-paper';
 import DateTimePicker, {
   DateTimePickerEvent,
@@ -26,7 +28,7 @@ import { useTranslation } from 'react-i18next';
 import { useCreateLease } from '../../hooks/useLeases';
 import KeyboardAwareScrollView from '../../components/KeyboardAwareScrollView';
 import { formatNumberInput, parseNumberInput } from '../../utils';
-import type { PropertiesStackParamList } from '../../types';
+import type { LeaseTermInput, PropertiesStackParamList } from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<PropertiesStackParamList>;
 type RouteType = RouteProp<PropertiesStackParamList, 'CreateLease'>;
@@ -39,11 +41,18 @@ const toISODate = (d: Date): string => {
   return `${d.getFullYear()}-${mm}-${dd}`;
 };
 
+const addDays = (d: Date, days: number): Date => {
+  const result = new Date(d);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
 interface DateFieldProps {
   label: string;
   value: Date | null;
   onChange: (date: Date) => void;
   minimumDate?: Date;
+  maximumDate?: Date;
   error?: string;
 }
 
@@ -53,6 +62,7 @@ const DateField: React.FC<DateFieldProps> = ({
   value,
   onChange,
   minimumDate,
+  maximumDate,
   error,
 }) => {
   const theme = useTheme();
@@ -91,9 +101,10 @@ const DateField: React.FC<DateFieldProps> = ({
 
       {open && Platform.OS === 'android' && (
         <DateTimePicker
-          value={value ?? new Date()}
+          value={value ?? minimumDate ?? new Date()}
           mode="date"
           minimumDate={minimumDate}
+          maximumDate={maximumDate}
           onChange={handleChange}
         />
       )}
@@ -109,10 +120,11 @@ const DateField: React.FC<DateFieldProps> = ({
             ]}
           >
             <DateTimePicker
-              value={value ?? new Date()}
+              value={value ?? minimumDate ?? new Date()}
               mode="date"
               display="spinner"
               minimumDate={minimumDate}
+              maximumDate={maximumDate}
               onChange={handleChange}
             />
             <Button mode="contained" onPress={() => setOpen(false)}>
@@ -125,6 +137,20 @@ const DateField: React.FC<DateFieldProps> = ({
   );
 };
 
+// One pricing period draft. Start dates are derived (first period starts with
+// the lease; each next period starts the day after the previous one ends) and
+// the last period always ends with the lease, so overlapping or gapped
+// schedules are unrepresentable in the UI. The user only edits the split
+// boundaries ("until") plus rent and notes.
+interface PeriodDraft {
+  key: number;
+  // End boundary; editable on every period except the last (which is derived
+  // from the lease end date / open-ended lease).
+  endDate: Date | null;
+  monthlyRent: string;
+  notes: string;
+}
+
 const CreateLeaseScreen: React.FC = () => {
   const theme = useTheme();
   const navigation = useNavigation<NavigationProp>();
@@ -134,12 +160,24 @@ const CreateLeaseScreen: React.FC = () => {
 
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [monthlyRent, setMonthlyRent] = useState('');
+  // Default behavior: one pricing period automatically covering the lease.
+  const [periods, setPeriods] = useState<PeriodDraft[]>([
+    { key: 1, endDate: null, monthlyRent: '', notes: '' },
+  ]);
+  const [nextPeriodKey, setNextPeriodKey] = useState(2);
   const [depositAmount, setDepositAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const createLease = useCreateLease();
+
+  // Derived start date of each period (see PeriodDraft).
+  const periodStart = (index: number): Date | null => {
+    if (!startDate) return null;
+    if (index === 0) return startDate;
+    const previousEnd = periods[index - 1].endDate;
+    return previousEnd ? addDays(previousEnd, 1) : null;
+  };
 
   const handleStartChange = (date: Date) => {
     setStartDate(date);
@@ -155,6 +193,28 @@ const CreateLeaseScreen: React.FC = () => {
     setErrors((e) => ({ ...e, endDate: '' }));
   };
 
+  const updatePeriod = (key: number, patch: Partial<PeriodDraft>) => {
+    setPeriods((current) =>
+      current.map((p) => (p.key === key ? { ...p, ...patch } : p)),
+    );
+    setErrors((e) => ({ ...e, [`period-${key}`]: '' }));
+  };
+
+  const addPeriod = () => {
+    setPeriods((current) => [
+      ...current,
+      { key: nextPeriodKey, endDate: null, monthlyRent: '', notes: '' },
+    ]);
+    setNextPeriodKey((k) => k + 1);
+  };
+
+  // Removing a period merges its time span into the neighbors (the previous
+  // period's boundary simply moves), so the schedule stays contiguous.
+  const removePeriod = (key: number) => {
+    setPeriods((current) => current.filter((p) => p.key !== key));
+    setErrors((e) => ({ ...e, [`period-${key}`]: '' }));
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -168,8 +228,59 @@ const CreateLeaseScreen: React.FC = () => {
       newErrors.notes = t('leases.errors.notesMaxLength');
     }
 
+    // Pricing schedule. A single period with no rent means "no pricing yet"
+    // (rent has always been optional); anything else must be complete.
+    const pricingUsed =
+      periods.length > 1 || periods.some((p) => p.monthlyRent !== '');
+    if (pricingUsed && startDate) {
+      periods.forEach((period, index) => {
+        const isLast = index === periods.length - 1;
+        if (period.monthlyRent === '') {
+          newErrors[`period-${period.key}`] = t(
+            'leases.errors.periodRentRequired',
+          );
+          return;
+        }
+        if (isLast) return; // last boundary is derived from the lease end
+        const start = periodStart(index);
+        if (!period.endDate) {
+          newErrors[`period-${period.key}`] = t(
+            'leases.errors.periodEndRequired',
+          );
+          return;
+        }
+        const boundaryInvalid =
+          (start && period.endDate.getTime() < start.getTime()) ||
+          (endDate && period.endDate.getTime() >= endDate.getTime());
+        if (boundaryInvalid) {
+          newErrors[`period-${period.key}`] = t(
+            'leases.errors.periodEndOutOfRange',
+          );
+        }
+      });
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const buildLeaseTerms = (): LeaseTermInput[] | undefined => {
+    const pricingUsed =
+      periods.length > 1 || periods.some((p) => p.monthlyRent !== '');
+    if (!pricingUsed) return undefined;
+
+    return periods.map((period, index) => {
+      const isLast = index === periods.length - 1;
+      const start = periodStart(index) as Date; // validated
+      const end = isLast ? endDate : period.endDate;
+      return {
+        startDate: toISODate(start),
+        endDate: end ? toISODate(end) : undefined,
+        monthlyRent: parseFloat(period.monthlyRent),
+        notes: period.notes.trim() || undefined,
+        displayOrder: index + 1,
+      };
+    });
   };
 
   const handleSubmit = async () => {
@@ -180,7 +291,7 @@ const CreateLeaseScreen: React.FC = () => {
         propertyId,
         startDate: toISODate(startDate),
         endDate: endDate ? toISODate(endDate) : undefined,
-        monthlyRent: monthlyRent ? parseFloat(monthlyRent) : undefined,
+        leaseTerms: buildLeaseTerms(),
         depositAmount: depositAmount ? parseFloat(depositAmount) : undefined,
         notes: notes.trim() || undefined,
       });
@@ -196,6 +307,80 @@ const CreateLeaseScreen: React.FC = () => {
         err?.response?.data?.message || t('leases.errors.createFailed');
       Alert.alert(t('common.error'), errorMessage);
     }
+  };
+
+  const renderPeriod = (period: PeriodDraft, index: number) => {
+    const isLast = index === periods.length - 1;
+    const start = periodStart(index);
+    const error = errors[`period-${period.key}`];
+
+    return (
+      <Card key={period.key} style={styles.periodCard} mode="outlined">
+        <Card.Content>
+          <View style={styles.periodHeader}>
+            <Text variant="titleSmall" style={styles.periodTitle}>
+              {t('leases.period', { number: index + 1 })}
+            </Text>
+            {periods.length > 1 && (
+              <IconButton
+                icon="delete-outline"
+                size={20}
+                accessibilityLabel={t('leases.removePeriod')}
+                onPress={() => removePeriod(period.key)}
+              />
+            )}
+          </View>
+
+          <Text variant="bodySmall" style={styles.periodRange}>
+            {t('leases.startDate')}:{' '}
+            {start ? start.toLocaleDateString() : t('common.notAvailable')}
+          </Text>
+
+          {isLast ? (
+            <Text variant="bodySmall" style={styles.periodRange}>
+              {t('leases.periodUntil')}:{' '}
+              {endDate ? endDate.toLocaleDateString() : t('leases.openEnded')}
+            </Text>
+          ) : (
+            <View style={styles.periodUntilField}>
+              <DateField
+                label={t('leases.periodUntil')}
+                value={period.endDate}
+                onChange={(date) => updatePeriod(period.key, { endDate: date })}
+                minimumDate={start ?? undefined}
+                maximumDate={endDate ? addDays(endDate, -1) : undefined}
+              />
+            </View>
+          )}
+
+          <TextInput
+            label={t('leases.monthlyRent')}
+            value={formatNumberInput(period.monthlyRent)}
+            onChangeText={(text) =>
+              updatePeriod(period.key, { monthlyRent: parseNumberInput(text) })
+            }
+            mode="outlined"
+            keyboardType="decimal-pad"
+            left={<TextInput.Affix text="₪" />}
+            error={!!error}
+            style={styles.input}
+          />
+
+          <TextInput
+            label={`${t('properties.notes')} (${t('common.optional')})`}
+            value={period.notes}
+            onChangeText={(text) => updatePeriod(period.key, { notes: text })}
+            mode="outlined"
+            style={styles.input}
+            maxLength={1000}
+          />
+
+          <HelperText type="error" visible={!!error}>
+            {error}
+          </HelperText>
+        </Card.Content>
+      </Card>
+    );
   };
 
   return (
@@ -232,18 +417,27 @@ const CreateLeaseScreen: React.FC = () => {
         />
 
         <Text variant="titleMedium" style={styles.sectionTitle}>
-          {t('leases.financialDetails')}
+          {t('leases.pricingPeriods')}
+        </Text>
+        <Text variant="bodySmall" style={styles.sectionHint}>
+          {t('leases.pricingPeriodsHint')}
         </Text>
 
-        <TextInput
-          label={t('leases.monthlyRent')}
-          value={formatNumberInput(monthlyRent)}
-          onChangeText={(text) => setMonthlyRent(parseNumberInput(text))}
+        {periods.map(renderPeriod)}
+
+        <Button
           mode="outlined"
-          keyboardType="decimal-pad"
-          left={<TextInput.Affix text="₪" />}
-          style={styles.input}
-        />
+          icon="plus"
+          onPress={addPeriod}
+          disabled={!startDate}
+          style={styles.addPeriodButton}
+        >
+          {t('leases.addPeriod')}
+        </Button>
+
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          {t('leases.financialDetails')}
+        </Text>
 
         <TextInput
           label={t('leases.securityDeposit')}
@@ -304,6 +498,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 12,
   },
+  sectionHint: {
+    opacity: 0.7,
+    marginTop: -8,
+    marginBottom: 12,
+  },
   infoBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,6 +516,27 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 4,
+  },
+  periodCard: {
+    marginBottom: 12,
+  },
+  periodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  periodTitle: {
+    fontWeight: '600',
+  },
+  periodRange: {
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  periodUntilField: {
+    marginTop: 8,
+  },
+  addPeriodButton: {
+    marginBottom: 8,
   },
   pickerModal: {
     margin: 24,

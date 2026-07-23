@@ -97,6 +97,26 @@ Other lease routes:
 - `GET /properties/:propertyId/leases` — a property's leases (owner).
 - `GET /leases/:id` — lease details.
 - `PATCH /leases/:id/status` — set `PENDING | ACTIVE | ENDED`.
+- `GET /leases/:id/terms` — the lease's pricing schedule (owner or tenant).
+- `PUT /leases/:id/terms` — owner replaces the entire pricing schedule
+  (`{ leaseTerms: [...] }`); the tenant (if any) is notified.
+
+## Lease pricing (LeaseTerm)
+
+A lease's rent is a schedule of one or more pricing periods (`leaseTerms`),
+each with `startDate`, `endDate` (null only on the last period of an
+open-ended lease), `monthlyRent`, `currency` (ISO 4217, default `ILS`),
+optional `notes`, and a per-lease-unique `displayOrder`. Every lease response
+includes `leaseTerms` sorted by start date.
+
+Schedule rules (validated in `LeasePricingService`, the single home for all
+pricing logic): at least one period, no overlaps, no gaps, and the schedule
+exactly covers the lease duration.
+
+On `POST /properties/:propertyId/leases`, pass either `leaseTerms` (preferred)
+or the legacy single `monthlyRent` (becomes one period covering the whole
+lease); `Lease.monthlyRent` is now only a backward-compatibility mirror of the
+first period — never read it in new code.
 
 ---
 

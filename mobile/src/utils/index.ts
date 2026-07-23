@@ -1,4 +1,5 @@
 export * from './rtl';
+export * from './leasePricing';
 
 // Format date to localized string
 export const formatDate = (dateString: string): string => {
@@ -27,7 +28,25 @@ export const addThousandsSeparators = (value: number): string => {
 
 // Format an amount as ILS currency with thousands separators, e.g. 1500 -> ₪1,500
 export const formatCurrency = (amount?: number | null): string =>
-  amount == null ? '' : `₪${addThousandsSeparators(amount)}`;
+  amount == null ? '' : `₪${addThousandsSeparators(Number(amount))}`;
+
+// Known currency symbols; unknown ISO codes fall back to "CODE " prefix.
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  ILS: '₪',
+  USD: '$',
+  EUR: '€',
+};
+
+// Format an amount in a specific currency, e.g. (1500, 'USD') -> $1,500
+export const formatMoney = (
+  amount: number | null | undefined,
+  currency = 'ILS',
+): string => {
+  if (amount == null) return '';
+  const symbol = CURRENCY_SYMBOLS[currency];
+  const formatted = addThousandsSeparators(Number(amount));
+  return symbol ? `${symbol}${formatted}` : `${currency} ${formatted}`;
+};
 
 // Format a numeric text input for display with thousands separators, keeping any
 // decimal part the user is typing, e.g. "1500" -> "1,500", "1234.5" -> "1,234.5".

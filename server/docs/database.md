@@ -44,9 +44,27 @@ mechanism. **Replaces the old `TenantAssignment` concept.**
 
 * id, propertyId → Property, tenantId? → User (nullable until redeemed)
 * status: `PENDING | ACTIVE | ENDED` (default `PENDING`)
-* startDate, endDate?, monthlyRent? (Decimal), depositAmount? (Decimal), notes?
+* startDate, endDate?, depositAmount? (Decimal), notes?
+* monthlyRent? (Decimal) — **legacy**: a mirror of the first LeaseTerm kept for
+  backward compatibility; pricing lives in LeaseTerm and is read through
+  `LeasePricingService`.
 * activationCode? (unique), activationCodeExpiresAt? — landlord shares the code;
   a tenant redeems it to join. Cleared once consumed.
+
+## LeaseTerm
+
+One pricing period of a lease's rent schedule. Periods are contiguous,
+non-overlapping, and together cover the entire lease duration (enforced in
+`LeasePricingService`). Designed to later carry per-period charges (parking,
+storage, internet, municipal tax, …), discounts, CPI linkage and a pricing
+type without a redesign.
+
+* id, leaseId → Lease (cascade delete)
+* startDate, endDate? — endDate is null only on the last period of an
+  open-ended lease
+* monthlyRent (Decimal), currency (ISO 4217, default `ILS`), notes?
+* displayOrder — unique per lease (`@@unique([leaseId, displayOrder])`)
+* Indexes: `[leaseId]`, `[leaseId, startDate]`
 
 ## Document
 

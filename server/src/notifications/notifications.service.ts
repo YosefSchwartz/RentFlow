@@ -119,6 +119,22 @@ export class NotificationsService {
     });
   }
 
+  // The landlord changed the pricing schedule of a lease the tenant is on.
+  async notifyLeaseTermsUpdated(
+    tenantId: string,
+    propertyTitle: string,
+    leaseId: string,
+  ): Promise<Notification> {
+    return this.create({
+      userId: tenantId,
+      type: NotificationType.LEASE_TERMS_UPDATED,
+      title: 'Lease Pricing Updated',
+      message: `The pricing schedule of your lease at "${propertyTitle}" has been updated.`,
+      entityType: 'lease',
+      entityId: leaseId,
+    });
+  }
+
   async notifyMaintenanceCreated(
     landlordId: string,
     tenantName: string,
@@ -227,7 +243,8 @@ export class NotificationsService {
       userId,
       type: NotificationType.PASSWORD_CHANGED,
       title: 'Password Changed',
-      message: 'Your password was recently changed. If this wasn\'t you, contact support immediately.',
+      message:
+        "Your password was recently changed. If this wasn't you, contact support immediately.",
     });
   }
 }

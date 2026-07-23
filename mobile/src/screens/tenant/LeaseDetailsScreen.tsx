@@ -15,7 +15,7 @@ import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLease } from '../../hooks/useLeases';
 import { formatCurrency } from '../../utils';
-import { PropertyLocationMap } from '../../components';
+import { LeaseScheduleSection, PropertyLocationMap } from '../../components';
 import type { RentalsStackParamList, LeaseStatus } from '../../types';
 
 type LeaseDetailsRouteProp = RouteProp<RentalsStackParamList, 'LeaseDetails'>;
@@ -177,14 +177,6 @@ const LeaseDetailsScreen: React.FC = () => {
                 <Text variant="bodyMedium">{formatDate(lease.endDate)}</Text>
               </View>
             </View>
-            <Divider style={styles.divider} />
-            <View style={styles.infoRow}>
-              <Icon name="cash" size={20} color={theme.colors.secondary} />
-              <View style={styles.infoText}>
-                <Text variant="labelMedium" style={styles.infoLabel}>{t('leases.monthlyRent')}</Text>
-                <Text variant="bodyMedium">{formatAmount(lease.monthlyRent)}</Text>
-              </View>
-            </View>
             {lease.depositAmount && (
               <>
                 <Divider style={styles.divider} />
@@ -199,6 +191,9 @@ const LeaseDetailsScreen: React.FC = () => {
             )}
           </Card.Content>
         </Card>
+
+        {/* Pricing schedule (replaces the old single Monthly Rent row). */}
+        <LeaseScheduleSection lease={lease} />
       </ScrollView>
     </View>
   );
