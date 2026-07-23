@@ -123,6 +123,18 @@ variable "ses_sender_email" {
   type = string
 }
 
+# --- Monitoring / cost governance (Layer 12) ---
+variable "monthly_budget_limit" {
+  description = "Monthly account cost budget (USD). Alerts at 80%/100% actual and 100% forecasted."
+  type        = number
+  default     = 100
+}
+
+variable "billing_alert_email" {
+  description = "Email address receiving budget and cost-anomaly alerts (AWS sends a one-time confirmation to it)."
+  type        = string
+}
+
 # --- CI/CD (Layer 11) ---
 variable "github_repository" {
   type    = string

@@ -8,6 +8,12 @@
 #   * CloudWatch Logs — Interface endpoint (awslogs driver).
 #   * Secrets Manager — Interface endpoint (DB credentials).
 #
+# COST: each interface endpoint bills ~$0.012/ENI-hour PER AZ (~$17.5/mo at
+# 2 AZs). Past ~2 endpoints a single NAT gateway (main.tf, enable_nat_gateway)
+# is cheaper, so environments can turn the whole interface set off with
+# var.enable_interface_endpoints = false. The S3 GATEWAY endpoint is free and
+# is always kept — ECR image layers ride it instead of the NAT.
+#
 # Endpoint SG source: the PRIVATE APP SUBNET CIDRs (where ECS tasks run).
 # Referencing the compute ECS security group here would create a
 # networking <-> compute dependency cycle (compute already depends on
@@ -18,8 +24,10 @@
 locals {
   # Interface endpoint service short-names (region prefixed at use). The base
   # set covers image pulls, logs, and secrets; callers can add more (e.g.
-  # ssmmessages for ECS Exec) via var.additional_interface_endpoints.
-  interface_endpoint_services = merge(
+  # ssmmessages for ECS Exec) via var.additional_interface_endpoints — or turn
+  # the whole interface set off (NAT egress instead) via
+  # var.enable_interface_endpoints.
+  interface_endpoint_services = var.enable_interface_endpoints ? merge(
     {
       ecr_api        = "ecr.api"
       ecr_dkr        = "ecr.dkr"
@@ -27,11 +35,13 @@ locals {
       secretsmanager = "secretsmanager"
     },
     var.additional_interface_endpoints,
-  )
+  ) : {}
 }
 
 # --- Endpoint security group: HTTPS from the app subnets only ---
 resource "aws_security_group" "endpoints" {
+  count = var.enable_interface_endpoints ? 1 : 0
+
   name        = "${var.name_prefix}-vpce"
   description = "HTTPS from private app subnets to interface VPC endpoints"
   vpc_id      = aws_vpc.this.id
@@ -44,9 +54,9 @@ resource "aws_security_group" "endpoints" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "endpoints_https" {
-  for_each = local.private_app_subnets # az => cidr
+  for_each = var.enable_interface_endpoints ? local.private_app_subnets : {} # az => cidr
 
-  security_group_id = aws_security_group.endpoints.id
+  security_group_id = aws_security_group.endpoints[0].id
   cidr_ipv4         = each.value
   from_port         = 443
   to_port           = 443
@@ -81,7 +91,7 @@ resource "aws_vpc_endpoint" "interface" {
   service_name        = "com.amazonaws.${data.aws_region.current.name}.${each.value}"
   vpc_endpoint_type   = "Interface"
   subnet_ids          = [for az in local.azs : aws_subnet.private_app[az].id]
-  security_group_ids  = [aws_security_group.endpoints.id]
+  security_group_ids  = [aws_security_group.endpoints[0].id]
   private_dns_enabled = true
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-vpce-${each.key}" })

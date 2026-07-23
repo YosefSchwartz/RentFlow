@@ -41,6 +41,18 @@ variable "enable_dns_hostnames" {
   default     = true
 }
 
+variable "enable_nat_gateway" {
+  description = "Create a SINGLE NAT gateway (first public subnet) with a default route from every private-app route table. Cheaper than 3+ interface endpoints (~$38/mo vs ~$17.5/mo each); single-AZ egress is an accepted staging trade-off — production should move to per-AZ NATs."
+  type        = bool
+  default     = false
+}
+
+variable "enable_interface_endpoints" {
+  description = "Create the interface VPC endpoints (base set + additional_interface_endpoints). Set FALSE when enable_nat_gateway provides egress instead — each interface endpoint costs ~$17.5/mo at 2 AZs. The free S3 gateway endpoint is always created regardless."
+  type        = bool
+  default     = true
+}
+
 variable "additional_interface_endpoints" {
   description = "Extra interface VPC endpoints to create (key => AWS service short-name), merged with the base set. E.g. { ssmmessages = \"ssmmessages\" } to allow ECS Exec on tasks in private subnets with no NAT."
   type        = map(string)

@@ -20,10 +20,11 @@ environment root (`terraform/environments/<env>`).
 | 6 — Storage | `modules/storage` | **yes** | Secure private S3 bucket |
 | 7 — Database | `modules/database` | **yes** | RDS PostgreSQL (private, encrypted) |
 | 8 — Compute | `modules/compute` | **yes** | ECS Fargate + ALB + autoscaling |
-| 9 — Private connectivity | `modules/networking` (extended) | **yes** | VPC endpoints (no NAT) |
+| 9 — Private connectivity | `modules/networking` (extended) | **yes** | Egress: NAT gateway and/or VPC endpoints (per env) |
 | 10 — Container registry | `modules/container_registry` | **yes** | Private ECR repo + lifecycle |
 | 11 — CI/CD | `modules/cicd` | **yes** | GitHub OIDC provider + deploy role |
-| 12+ — (future) | `acm`, `route53`, `cloudfront`, … | yes | Edge / DNS / TLS |
+| 12 — Monitoring | `modules/monitoring` | **yes** | Cost budget + anomaly alerts |
+| 13+ — (future) | `acm`, `route53`, `cloudfront`, … | yes | Edge / DNS / TLS |
 
 Rule: a module never hardcodes names or tags — it receives `name_prefix` and
 `common_tags` from Foundation and passes them down.
@@ -76,11 +77,17 @@ so AZs/subnets can be added without renumbering:
 
 ### Egress strategy
 
-**No NAT Gateway.** Private-subnet egress to AWS services is provided by **VPC
-endpoints** (Layer 9, below) instead — cheaper at this scale and keeps traffic
-on the AWS backbone. Private route tables remain per-AZ, so an HA NAT could be
-added later (with no re-association) if general outbound internet access is ever
-required.
+Private-app egress is **switchable per environment** (Layer 9, below):
+
+- **Single NAT gateway** (`enable_nat_gateway = true`) — what **staging runs**.
+  One NAT (~$38/mo) replaced the original interface-endpoint set after the
+  Jul 2026 FinOps review showed 6 endpoints × 2 AZs billing ~$105/mo. The free
+  S3 **gateway** endpoint is always kept, so ECR image layers bypass NAT data
+  charges. Single-AZ egress is an accepted staging trade-off.
+- **Interface VPC endpoints** (`enable_interface_endpoints = true`) — no NAT,
+  no public path; only worth it below ~2 endpoints or when a no-internet-egress
+  posture is required. Production should use per-AZ NATs (the private route
+  tables are already per-AZ, so they attach with no re-association).
 
 ## Layer 4 — Security baseline
 
@@ -337,9 +344,10 @@ its ECS security group to the Database layer.
   only from the ALB).
 - The ECS SG id is wired into `database.allowed_security_group_ids`, so only the
   backend can reach PostgreSQL.
-- **Egress:** tasks reach ECR / Secrets Manager / CloudWatch / S3 privately via
-  **VPC endpoints** (Layer 9) — no NAT Gateway, no public path. RDS is reached
-  in-VPC via the DB security group.
+- **Egress:** tasks reach ECR / Secrets Manager / CloudWatch / Bedrock /
+  ssmmessages through the environment's egress path (Layer 9 — staging: single
+  NAT gateway; S3 always via the free gateway endpoint). RDS is reached in-VPC
+  via the DB security group.
 
 ### IAM model (least privilege)
 
@@ -357,45 +365,38 @@ are added later, each scoped to a specific ARN.
 nginx image). The RentFlow backend image (ECR) and `container_port=3000` /
 `health_check_path=/api/health` are set at deploy time — nothing is hardcoded.
 
-## Layer 9 — Private AWS connectivity (VPC endpoints)
+## Layer 9 — Private AWS connectivity (NAT / VPC endpoints)
 
-Extends `modules/networking`. Lets private ECS tasks use AWS services **without a
-NAT Gateway or any public internet path**.
+Extends `modules/networking`. Gives private ECS tasks a path to AWS services;
+each environment picks its egress mode (see *Egress strategy*, Layer 3).
 
-| Endpoint | Type | Purpose |
+**Staging (current): single NAT gateway + free S3 gateway endpoint.**
+
+| Component | Type | Purpose |
 | --- | --- | --- |
-| S3 | Gateway | object storage (attached to the private route tables; free) |
-| ECR API + ECR DKR | Interface | pull the container image |
-| CloudWatch Logs | Interface | `awslogs` driver |
-| Secrets Manager | Interface | DB credentials |
+| S3 | Gateway endpoint | object storage + ECR image *layers* (attached to the private route tables; free) |
+| NAT gateway | single, first public subnet | everything else: ECR API, CloudWatch Logs, Secrets Manager, ssmmessages (ECS Exec), Bedrock |
 
-- **Interface endpoints** get ENIs in the private app subnets with
-  `private_dns_enabled = true`, so standard AWS SDK/DNS calls resolve to the
-  private endpoint automatically — no app changes.
-- **Endpoint security group** allows **443 only from the private app subnet
-  CIDRs** (never `0.0.0.0/0`), egress denied. Referencing the compute ECS SG
-  directly would create a networking↔compute cycle; the app-subnet CIDRs are the
-  cycle-free, least-privilege equivalent (only the app tier lives there).
-
-### ECS egress flow (no NAT)
+### ECS egress flow (staging)
 
 ```
   ECS task (private app subnet)
      │
-     ├─ S3 .................→ S3 Gateway endpoint (via private route table)
+     ├─ S3 / ECR layers ....→ S3 Gateway endpoint (via private route table, free)
      │
-     └─ ECR / Logs / Secrets Manager
-                ↓ private DNS → interface endpoint ENI (443, endpoint SG)
-        ┌──────────────────────────────────────────────┐
-        │  interface endpoints in private app subnets    │
-        │  SG: 443 from app-subnet CIDRs only            │
-        └──────────────────────────────────────────────┘
-                ↓ AWS backbone (never traverses the internet)
-             ECR / CloudWatch Logs / Secrets Manager
+     └─ ECR API / Logs / Secrets Manager / ssmmessages / Bedrock
+                ↓ 0.0.0.0/0 route (per-AZ private route tables)
+             NAT gateway (public subnet, EIP)
+                ↓
+             Internet Gateway → AWS service endpoints (TLS)
 ```
 
-Result: image pulls, logging, secret reads, and S3 access all work with **no NAT
-Gateway** and **no public egress**.
+**Alternative mode — interface endpoints** (`enable_interface_endpoints = true`,
+no NAT): ENIs in the private app subnets with `private_dns_enabled = true`, an
+endpoint SG allowing **443 only from the private app subnet CIDRs**, and zero
+public egress. Kept in the module for environments that need a no-internet
+posture — but each interface endpoint bills ~$17.5/mo at 2 AZs, which is why
+staging switched to the NAT (Jul 2026 FinOps review).
 
 ## Layer 10 — Container registry (ECR)
 

@@ -65,6 +65,23 @@ variable "memory" {
   default     = 512
 }
 
+variable "cpu_architecture" {
+  description = "Task CPU architecture. ARM64 (Graviton) is ~20% cheaper than X86_64 at identical sizes and is supported on FARGATE_SPOT — but the container image must be built for it (CI builds linux/arm64)."
+  type        = string
+  default     = "ARM64"
+
+  validation {
+    condition     = contains(["ARM64", "X86_64"], var.cpu_architecture)
+    error_message = "cpu_architecture must be ARM64 or X86_64."
+  }
+}
+
+variable "use_fargate_spot" {
+  description = "Run the service 100% on FARGATE_SPOT (~70% cheaper; tasks can be interrupted with a 2-minute notice). Suitable for staging — production should keep on-demand FARGATE or use a mixed strategy."
+  type        = bool
+  default     = false
+}
+
 variable "container_environment" {
   description = "Non-secret environment variables for the container (name => value)."
   type        = map(string)
@@ -173,6 +190,12 @@ variable "cpu_target_value" {
   description = "Target average CPU utilization (%) for target-tracking autoscaling."
   type        = number
   default     = 60
+}
+
+variable "memory_target_value" {
+  description = "Target average memory utilization (%) for target-tracking autoscaling — scales out under memory pressure instead of OOM-killing tasks."
+  type        = number
+  default     = 75
 }
 
 # --- Cluster / TLS ---
