@@ -2,8 +2,9 @@
 # Networking (Layer 3) — VPC foundation for all compute/data layers.
 # ============================================================================
 # Scope: VPC, Internet Gateway, 6 subnets (public / private-app / private-db
-# across 2 AZs), and route tables + associations. NO NAT, security groups, or
-# VPC endpoints yet (added in later layers).
+# across 2 AZs), route tables + associations, and an optional single NAT
+# gateway for private-app egress (var.enable_nat_gateway). Security groups
+# live in later layers; VPC endpoints in endpoints.tf.
 # ----------------------------------------------------------------------------
 
 resource "aws_vpc" "this" {
@@ -98,6 +99,42 @@ resource "aws_route_table_association" "private_app" {
 
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private_app[each.key].id
+}
+
+# --- NAT gateway (opt-in, single) ---------------------------------------------
+# One NAT gateway in the first public subnet gives every private-app subnet
+# internet egress (ECR, CloudWatch Logs, Secrets Manager, ssmmessages/ECS Exec,
+# Bedrock, ...). A SINGLE NAT is a deliberate cost choice (~$38/mo vs ~$105/mo
+# for the interface-endpoint set it replaces): an AZ failure takes egress down
+# with it, which staging accepts. Production should attach one NAT per AZ to
+# the per-AZ route tables above before go-live.
+resource "aws_eip" "nat" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  domain = "vpc"
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-nat-eip" })
+}
+
+resource "aws_nat_gateway" "this" {
+  count = var.enable_nat_gateway ? 1 : 0
+
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[local.azs[0]].id
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-nat" })
+
+  # The NAT egresses through the IGW; make ordering explicit on create/destroy.
+  depends_on = [aws_internet_gateway.this]
+}
+
+# Default route from every private-app route table to the (single) NAT.
+resource "aws_route" "private_app_nat" {
+  for_each = var.enable_nat_gateway ? local.private_app_subnets : {}
+
+  route_table_id         = aws_route_table.private_app[each.key].id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.this[0].id
 }
 
 # --- Database routing --------------------------------------------------------

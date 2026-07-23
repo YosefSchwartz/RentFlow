@@ -46,10 +46,20 @@ output "database_route_table_id" {
   value       = aws_route_table.database.id
 }
 
+output "nat_gateway_id" {
+  description = "NAT gateway ID (null when enable_nat_gateway = false)."
+  value       = one(aws_nat_gateway.this[*].id)
+}
+
+output "nat_gateway_public_ip" {
+  description = "NAT gateway public IP (null when enable_nat_gateway = false) — useful for allow-listing egress."
+  value       = one(aws_eip.nat[*].public_ip)
+}
+
 # --- VPC endpoints (Layer 9 — private AWS connectivity) ---
 output "vpc_endpoint_security_group_id" {
-  description = "Security group protecting the interface VPC endpoints."
-  value       = aws_security_group.endpoints.id
+  description = "Security group protecting the interface VPC endpoints (null when enable_interface_endpoints = false)."
+  value       = one(aws_security_group.endpoints[*].id)
 }
 
 output "s3_gateway_endpoint_id" {

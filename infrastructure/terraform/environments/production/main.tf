@@ -220,7 +220,7 @@ module "compute" {
     can(regex("^(eu|us|apac|global)\\.", var.ai_model_id)) ? [
       "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/${var.ai_model_id}",
       "arn:aws:bedrock:*::foundation-model/${replace(var.ai_model_id, "/^(eu|us|apac|global)\\./", "")}",
-    ] : [
+      ] : [
       "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.ai_model_id}",
     ]
   ) : []
@@ -243,6 +243,7 @@ module "cicd" {
 
   ecr_repository_arn     = module.container_registry.repository_arn
   ecs_service_arn        = module.compute.ecs_service_arn
+  ecs_cluster_arn        = module.compute.ecs_cluster_arn
   ecs_execution_role_arn = module.compute.execution_role_arn
   ecs_task_role_arn      = module.compute.task_role_arn
 }

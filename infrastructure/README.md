@@ -268,12 +268,14 @@ tofu apply -var-file=staging.tfvars \
 OpenTofu reads the AWS profile from `staging.tfvars` (`aws_profile =
 "rentflow-staging"`), so every run is scoped to the RentFlow account.
 
-### 3. Deploy the backend image (private ECR, no NAT)
+### 3. Deploy the backend image (private ECR)
 
 The ECS tasks pull the backend image from the **private** ECR repo
-`rentflow-staging-backend` over the Layer 9 ECR/S3 VPC endpoints — there is no
-NAT and no public registry, so the image **must** live in that private repo.
-Build and push a SHA-tagged image, then point ECS at it:
+`rentflow-staging-backend` — manifests over the Layer 9 NAT gateway, layers
+over the free S3 gateway endpoint; there is no public registry, so the image
+**must** live in that private repo. The task definition is **ARM64 (Graviton)**,
+so build **linux/arm64** images (CI does this via buildx/QEMU). Build and push
+a SHA-tagged image, then point ECS at it:
 
 ```bash
 # From the repo root. Values: account 304126178791, region eu-central-1.
@@ -374,10 +376,11 @@ Modules are added **incrementally**, wired into each environment root
 4. **storage** — secure private S3 bucket ✅ *(done — Layer 6)*
 5. **database** — RDS PostgreSQL in private subnets ✅ *(done — Layer 7)*
 6. **compute** — ECS Fargate + ALB + autoscaling ✅ *(done — Layer 8)*
-7. **private connectivity** — VPC endpoints (S3, ECR, Logs, Secrets Manager), no NAT ✅ *(done — Layer 9, in `networking`)*
+7. **private connectivity** — single NAT gateway + free S3 gateway endpoint (interface-endpoint mode still available per env) ✅ *(done — Layer 9, in `networking`; switched to NAT in the Jul 2026 FinOps review)*
 8. **container_registry** — private ECR repo + lifecycle ✅ *(done — Layer 10)*
 9. **cicd** — GitHub Actions OIDC + deploy role ✅ *(done — Layer 11; workflow at `.github/workflows/backend-deploy.yml`)*
 10. **notifications** — SES transactional email (OTP) ✅ *(done; wired in staging `main.tf` as `module "notifications"`; SNS push is future)*
+11. **monitoring** — AWS Budgets + Cost Anomaly Detection ✅ *(done — Layer 12; CloudWatch alarms/dashboards are future)*
 11. **acm + route53** — certificates and DNS *(future)*
 12. **cloudfront** — CDN + signed downloads *(future)*
 13. **lambda + api_gateway** — serverless surfaces as needed *(future)*

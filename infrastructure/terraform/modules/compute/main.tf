@@ -17,6 +17,14 @@ resource "aws_ecs_cluster" "this" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-cluster" })
 }
 
+# Associate both Fargate capacity providers with the cluster. This costs
+# nothing by itself: the service picks Spot only when var.use_fargate_spot is
+# set, and one-off RunTask calls (CI migrations) keep using on-demand FARGATE.
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  cluster_name       = aws_ecs_cluster.this.name
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+}
+
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/${var.name_prefix}/ecs/${var.container_name}"
   retention_in_days = var.log_retention_days
@@ -66,6 +74,14 @@ resource "aws_ecs_task_definition" "this" {
   execution_role_arn       = aws_iam_role.execution.arn
   task_role_arn            = aws_iam_role.task.arn
 
+  # ARM64 (Graviton) is ~20% cheaper than x86 at identical Fargate sizes. The
+  # image referenced by container_image MUST be built for this architecture
+  # (CI builds linux/arm64 — .github/workflows/backend-deploy.yml).
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = var.cpu_architecture
+  }
+
   container_definitions = jsonencode([local.container_definition])
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-app" })
@@ -76,7 +92,24 @@ resource "aws_ecs_service" "this" {
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.this.arn
   desired_count   = var.desired_count
-  launch_type     = "FARGATE"
+
+  # On-demand FARGATE by default; 100% FARGATE_SPOT (~70% cheaper, 2-minute
+  # interruption notice) when var.use_fargate_spot — never both. launch_type
+  # and capacity_provider_strategy are mutually exclusive on a service.
+  launch_type = var.use_fargate_spot ? null : "FARGATE"
+
+  dynamic "capacity_provider_strategy" {
+    for_each = var.use_fargate_spot ? [1] : []
+    content {
+      capacity_provider = "FARGATE_SPOT"
+      weight            = 1
+    }
+  }
+
+  # Required to move between launch_type and a capacity provider strategy
+  # in place (ECS otherwise rejects the update / Terraform replaces the
+  # service). Only takes effect on applies that actually change the service.
+  force_new_deployment = true
 
   # ECS Exec (`aws ecs execute-command`) — off by default; the task role gets
   # the ssmmessages permissions only when this is enabled (see iam.tf).
@@ -112,5 +145,7 @@ resource "aws_ecs_service" "this" {
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-app" })
 
-  depends_on = [aws_lb_listener.http]
+  # The capacity provider must be associated with the cluster before a service
+  # can reference it in its strategy.
+  depends_on = [aws_lb_listener.http, aws_ecs_cluster_capacity_providers.this]
 }

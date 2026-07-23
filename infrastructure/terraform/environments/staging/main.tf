@@ -54,15 +54,15 @@ module "networking" {
   tags        = module.foundation.common_tags
   vpc_cidr    = var.vpc_cidr
 
-  # Interface endpoints so private app tasks (no NAT) can reach AWS services:
-  #   * ssmmessages   — ECS Exec (compute.enable_execute_command below).
-  #   * bedrock-runtime — AI InvokeModel; only when AI/Bedrock is enabled.
-  # Without the bedrock-runtime endpoint, InvokeModel has no network path and
-  # hangs until the stream is canceled (there is no NAT / internet egress).
-  additional_interface_endpoints = merge(
-    { ssmmessages = "ssmmessages" },
-    var.ai_enabled && var.ai_provider == "bedrock" ? { bedrock_runtime = "bedrock-runtime" } : {},
-  )
+  # Egress for the private app tasks: a SINGLE NAT gateway replaced the
+  # interface-endpoint set (FinOps review, Jul 2026 — 6 endpoints x 2 AZs was
+  # ~$105/mo vs ~$38/mo for one NAT). Everything the endpoints served — ECR
+  # API, CloudWatch Logs, Secrets Manager, ssmmessages (ECS Exec), and
+  # bedrock-runtime (AI InvokeModel) — now routes over the NAT; the FREE S3
+  # gateway endpoint stays, so ECR image layers still bypass NAT data charges.
+  # Single-AZ NAT is an accepted staging trade-off (production: one per AZ).
+  enable_nat_gateway         = true
+  enable_interface_endpoints = false
 
   # TEMPORARY: internet route on the DB route table for IP-restricted DataGrip
   # access to RDS. Reachability is still gated by the DB SG (/32). Set back to
@@ -120,7 +120,7 @@ module "database" {
   performance_insights_enabled = var.db_performance_insights_enabled
   # Apply the instance-class resize now (no real users yet) rather than waiting
   # for the maintenance window. Consider setting back to window-based once live.
-  apply_immediately            = true
+  apply_immediately = true
 
   master_password = random_password.db_master.result
 
@@ -212,9 +212,10 @@ module "container_registry" {
 }
 
 # Layer 8 — Compute. ECS Fargate backend behind a public ALB. Private tasks.
-# The image comes from the PRIVATE ECR repo (rentflow-staging-backend), pulled
-# over the Layer 9 ECR/S3 VPC endpoints — no NAT, no public registry. Build and
-# push a SHA-tagged image first, then apply with -var "backend_image_tag=<sha>".
+# The image comes from the PRIVATE ECR repo (rentflow-staging-backend) —
+# manifests over the NAT gateway, layers over the free S3 gateway endpoint.
+# Build and push a SHA-tagged linux/arm64 image first (the task definition is
+# ARM64/Graviton), then apply with -var "backend_image_tag=<sha>".
 # (No cycle: compute → container_registry → foundation.)
 module "compute" {
   source = "../../modules/compute"
@@ -231,14 +232,19 @@ module "compute" {
   container_port    = 3000
   health_check_path = "/api/health"
 
-  # ECS Exec for interactive debugging (aws ecs execute-command). Needs the
-  # ssmmessages endpoint wired into the networking module above.
+  # ECS Exec for interactive debugging (aws ecs execute-command). Reaches
+  # ssmmessages over the NAT gateway (networking module above).
   enable_execute_command = true
   cpu                    = var.backend_cpu
   memory                 = var.backend_memory
   desired_count          = var.backend_desired_count
   min_capacity           = var.backend_min_capacity
   max_capacity           = var.backend_max_capacity
+
+  # Staging runs 100% on FARGATE_SPOT (~70% cheaper). A Spot interruption
+  # (2-minute notice) briefly drops the only task — acceptable for staging,
+  # NOT for production (keep on-demand there).
+  use_fargate_spot = true
 
   # --- Runtime configuration ---
   # Non-secret config as plain env vars. (The backend signs its OWN JWTs with
@@ -304,7 +310,7 @@ module "compute" {
     can(regex("^(eu|us|apac|global)\\.", var.ai_model_id)) ? [
       "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/${var.ai_model_id}",
       "arn:aws:bedrock:*::foundation-model/${replace(var.ai_model_id, "/^(eu|us|apac|global)\\./", "")}",
-    ] : [
+      ] : [
       "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.ai_model_id}",
     ]
   ) : []
@@ -316,6 +322,19 @@ module "compute" {
     "/bin/sh", "-c",
     "export DATABASE_URL=\"postgresql://$DB_USERNAME:$(node -e 'process.stdout.write(encodeURIComponent(process.env.DB_PASSWORD))')@$DB_HOST:$DB_PORT/$DB_NAME?schema=public&sslmode=require\"; exec node dist/src/main.js"
   ]
+}
+
+# Layer 12 — Monitoring (cost governance). Monthly budget + per-service cost
+# anomaly detection, alerting by email. Both free; guards against the kind of
+# silent cost creep found in the Jul 2026 FinOps review.
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  name_prefix = module.foundation.name_prefix
+  tags        = module.foundation.common_tags
+
+  monthly_budget_limit = var.monthly_budget_limit
+  alert_emails         = [var.billing_alert_email]
 }
 
 # Layer 11 — CI/CD. GitHub Actions → AWS via OIDC (no static credentials).
