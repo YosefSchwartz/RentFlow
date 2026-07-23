@@ -179,6 +179,16 @@
     "endDateOptional": "End Date (YYYY-MM-DD) - Optional",
     "startDateFormat": "Start Date (YYYY-MM-DD)",
     "monthlyRent": "Monthly Rent",
+    "leaseSchedule": "Lease Schedule",
+    "pricingPeriods": "Pricing Periods",
+    "pricingPeriodsHint": "The rent may change over the lease. Add a period for every price change; periods are consecutive and cover the whole lease.",
+    "period": "Period {{number}}",
+    "addPeriod": "Add Period",
+    "removePeriod": "Remove period",
+    "periodUntil": "Until",
+    "openEnded": "Open-ended",
+    "currentPeriod": "Current",
+    "noPricingPeriods": "No pricing set",
     "securityDeposit": "Security Deposit",
     "depositAmount": "Deposit Amount",
     "financialDetails": "Financial Details & Notes (Optional)",
@@ -191,7 +201,10 @@
       "dateFormat": "Please use YYYY-MM-DD format",
       "endDateAfterStart": "End date must be after start date",
       "notesMaxLength": "Notes must be at most 1000 characters",
-      "createFailed": "Failed to create lease"
+      "createFailed": "Failed to create lease",
+      "periodRentRequired": "Monthly rent is required for each period",
+      "periodEndRequired": "An end date is required for this period",
+      "periodEndOutOfRange": "Period end dates must be within the lease period and in order"
     },
     "statuses": {
       "ACTIVE": "Active",

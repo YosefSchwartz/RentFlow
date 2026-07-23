@@ -179,6 +179,16 @@
     "endDateOptional": "תאריך סיום (YYYY-MM-DD) - אופציונלי",
     "startDateFormat": "תאריך התחלה (YYYY-MM-DD)",
     "monthlyRent": "שכירות חודשית",
+    "leaseSchedule": "לוח שכר דירה",
+    "pricingPeriods": "תקופות מחיר",
+    "pricingPeriodsHint": "שכר הדירה יכול להשתנות לאורך החוזה. הוסיפו תקופה עבור כל שינוי מחיר; התקופות רציפות ומכסות את כל החוזה.",
+    "period": "תקופה {{number}}",
+    "addPeriod": "הוספת תקופה",
+    "removePeriod": "הסרת תקופה",
+    "periodUntil": "עד",
+    "openEnded": "ללא תאריך סיום",
+    "currentPeriod": "נוכחית",
+    "noPricingPeriods": "לא הוגדר שכר דירה",
     "securityDeposit": "פיקדון",
     "depositAmount": "סכום הפיקדון",
     "financialDetails": "פרטים כספיים והערות (אופציונלי)",
@@ -191,7 +201,10 @@
       "dateFormat": "אנא השתמש בפורמט YYYY-MM-DD",
       "endDateAfterStart": "תאריך הסיום חייב להיות אחרי תאריך ההתחלה",
       "notesMaxLength": "ההערות חייבות להכיל לכל היותר 1000 תווים",
-      "createFailed": "יצירת החוזה נכשלה"
+      "createFailed": "יצירת החוזה נכשלה",
+      "periodRentRequired": "יש להזין שכר דירה לכל תקופה",
+      "periodEndRequired": "יש לבחור תאריך סיום לתקופה זו",
+      "periodEndOutOfRange": "תאריכי הסיום של התקופות חייבים להיות בתוך תקופת החוזה ולפי הסדר"
     },
     "statuses": {
       "ACTIVE": "פעיל",

@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { usePropertyLeases } from '../../hooks/useLeases';
-import { formatCurrency } from '../../utils';
+import { formatCurrency, formatMoney, getCurrentLeaseRent } from '../../utils';
 import type { PropertiesStackParamList, Lease, LeaseStatus } from '../../types';
 
 type RouteType = RouteProp<PropertiesStackParamList, 'PropertyLeases'>;
@@ -83,7 +83,10 @@ const PropertyLeasesScreen: React.FC = () => {
       </Button>
 
       {leases && leases.length > 0 ? (
-        leases.map((lease: Lease) => (
+        leases.map((lease: Lease) => {
+          // Rent of the pricing period in effect today (legacy-rent fallback).
+          const rent = getCurrentLeaseRent(lease);
+          return (
           <Card key={lease.id} style={styles.itemCard} mode="outlined">
             <Card.Content>
               <View style={styles.leaseHeader}>
@@ -134,11 +137,11 @@ const PropertyLeasesScreen: React.FC = () => {
                     {t('rentals.end')}: {formatDate(lease.endDate)}
                   </Text>
                 </View>
-                {lease.monthlyRent && (
+                {rent && (
                   <View style={styles.leaseDetailRow}>
                     <Icon name="cash" size={16} color={theme.colors.outline} />
                     <Text variant="bodySmall" style={styles.leaseDetailText}>
-                      {t('rentals.rent')}: {formatAmount(lease.monthlyRent)}{t('rentals.perMonth')}
+                      {t('rentals.rent')}: {formatMoney(rent.amount, rent.currency)}{t('rentals.perMonth')}
                     </Text>
                   </View>
                 )}
@@ -165,7 +168,8 @@ const PropertyLeasesScreen: React.FC = () => {
               )}
             </Card.Content>
           </Card>
-        ))
+          );
+        })
       ) : (
         <View style={styles.emptyContainer}>
           <Icon name="file-document-outline" size={48} color={theme.colors.outline} />

@@ -60,6 +60,32 @@ export interface LocationData {
 // Lease model - represents active relationship between tenant and property
 export type LeaseStatus = 'ACTIVE' | 'PENDING' | 'EXPIRED' | 'TERMINATED';
 
+// One pricing period of a lease's rent schedule. Periods are contiguous,
+// non-overlapping and together cover the whole lease; endDate is null only on
+// the last period of an open-ended lease.
+export interface LeaseTerm {
+  id: string;
+  leaseId: string;
+  startDate: string;
+  endDate: string | null;
+  monthlyRent: number;
+  currency: string; // ISO 4217, e.g. "ILS"
+  notes?: string | null;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// A pricing period as sent to the backend (create / replace schedule).
+export interface LeaseTermInput {
+  startDate: string;
+  endDate?: string;
+  monthlyRent: number;
+  currency?: string;
+  notes?: string;
+  displayOrder?: number;
+}
+
 export interface Lease {
   id: string;
   propertyId: string;
@@ -68,9 +94,12 @@ export interface Lease {
   status: LeaseStatus;
   startDate: string;
   endDate: string;
+  // LEGACY mirror of the first pricing period — read pricing from leaseTerms.
   monthlyRent?: number;
   depositAmount?: number;
   notes?: string;
+  // Pricing schedule, sorted by start date.
+  leaseTerms?: LeaseTerm[];
   // Present only on owner-facing responses for an unassigned lease.
   activationCode?: string | null;
   activationCodeExpiresAt?: string | null;
@@ -85,9 +114,12 @@ export interface CreateLeaseRequest {
   propertyId: string;
   startDate: string;
   endDate?: string;
+  // LEGACY single-rent input; prefer leaseTerms.
   monthlyRent?: number;
   depositAmount?: number;
   notes?: string;
+  // Pricing schedule; takes precedence over monthlyRent on the backend.
+  leaseTerms?: LeaseTermInput[];
 }
 
 // Document access permission (extensible — mirrors the backend enum) and
@@ -544,6 +576,7 @@ export type NotificationType =
   | 'LEASE_PENDING'
   | 'LEASE_APPROVED'
   | 'LEASE_REJECTED'
+  | 'LEASE_TERMS_UPDATED'
   | 'MAINTENANCE_CREATED'
   | 'MAINTENANCE_UPDATED'
   | 'MAINTENANCE_RESOLVED'
